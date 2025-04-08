@@ -1,0 +1,183 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}Data Analysis - E-Parliament Bangladesh{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .card-stats { min-height: 150px; display: flex; align-items: center; justify-content: center; }
+    .chart-container { position: relative; margin: auto; height: 400px; width: 100%; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2>Data Analysis</h2>
+        <p class="text-muted">Insights from submitted requirement forms</p>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row">
+    <!-- Process Type Distribution -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Process Type Distribution</h5>
+                <div class="chart-container">
+                    <canvas id="processTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time-Related Responses -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Time-Related Responses</h5>
+                <div class="chart-container">
+                    <canvas id="timeResponseChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee-Related Responses -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Employee-Related Responses</h5>
+                <div class="chart-container">
+                    <canvas id="employeeResponseChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error-Related Responses -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Error-Related Responses</h5>
+                <div class="chart-container">
+                    <canvas id="errorResponseChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pass chart data to JavaScript -->
+{{ chart_data|json_script:"chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const chartData = JSON.parse(document.getElementById('chart-data').textContent);
+
+    // Process Type Chart (Pie)
+    const processTypeCtx = document.getElementById('processTypeChart').getContext('2d');
+    new Chart(processTypeCtx, {
+        type: 'pie',
+        data: {
+            labels: chartData.process_labels || ['Manual', 'Partial', 'Digital'],
+            datasets: [{
+                data: chartData.process_counts || [0, 0, 0],
+                backgroundColor: ['#007bff', '#28a745', '#ffc107'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Distribution of Current Process Types' }
+            }
+        }
+    });
+
+    // Time Response Chart (Bar)
+    const timeResponseCtx = document.getElementById('timeResponseChart').getContext('2d');
+    new Chart(timeResponseCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.time_labels || ['High', 'Medium', 'Low'],
+            datasets: [{
+                label: 'Responses',
+                data: chartData.time_data || [0, 0, 0],
+                backgroundColor: '#28a745',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Number of Responses' } },
+                x: { title: { display: true, text: 'Response Options' } }
+            },
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Time-Related Question Responses' }
+            }
+        }
+    });
+
+    // Employee Response Chart (Bar)
+    const employeeResponseCtx = document.getElementById('employeeResponseChart').getContext('2d');
+    new Chart(employeeResponseCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.employee_labels || ['Yes', 'No'],
+            datasets: [{
+                label: 'Responses',
+                data: chartData.employee_data || [0, 0],
+                backgroundColor: '#007bff',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Number of Responses' } },
+                x: { title: { display: true, text: 'Response Options' } }
+            },
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Employee-Related Question Responses' }
+            }
+        }
+    });
+
+    // Error Response Chart (Bar)
+    const errorResponseCtx = document.getElementById('errorResponseChart').getContext('2d');
+    new Chart(errorResponseCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.error_labels || ['High', 'Medium', 'Low'],
+            datasets: [{
+                label: 'Responses',
+                data: chartData.error_data || [0, 0, 0],
+                backgroundColor: '#dc3545',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Number of Responses' } },
+                x: { title: { display: true, text: 'Response Options' } }
+            },
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Error-Related Question Responses' }
+            }
+        }
+    });
+</script>
+{% endblock %}

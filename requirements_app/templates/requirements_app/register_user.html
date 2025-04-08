@@ -1,0 +1,23 @@
+{% extends "requirements_app/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Register User - E-Parliament Bangladesh{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2>Register New User</h2>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button type="submit" class="btn btn-success">Register User</button>
+            <a href="{% url 'user_management' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

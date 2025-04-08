@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>E-Parliament Requirements Form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #1f2937;
+      color: #d1d5db;
+      margin: 30px;
+      line-height: 1.6;
+    }
+
+    h1, h4 {
+      color: #4ade80;
+    }
+
+    h1 {
+      font-size: 1.8em;
+      margin-bottom: 5px;
+    }
+
+    h4 {
+      background-color: #4ade80;
+      color: #1e1e2f;
+      padding: 10px 16px;
+      margin: -15px -15px 15px -15px;
+      border-radius: 6px 6px 0 0;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo {
+      max-width: 100px;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 0.95em;
+      color: #9ca3af;
+    }
+
+    .section {
+      background-color: #374151;
+      padding: 15px;
+      margin-bottom: 25px;
+      border-radius: 6px;
+      border: 1px solid #4b5563;
+    }
+
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .info-table td {
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+
+    .label {
+      width: 30%;
+      font-weight: 600;
+      color: #e5e7eb;
+      white-space: nowrap;
+    }
+
+    .value {
+      color: #d1d5db;
+      width: 70%;
+    }
+
+    .na {
+      color: #f87171;
+      font-style: italic;
+    }
+
+    .row {
+      display: flex;
+      margin-bottom: 10px;
+    }
+
+    .col-label {
+      width: 35%;
+      font-weight: bold;
+      color: #e5e7eb;
+    }
+
+    .col-value {
+      width: 65%;
+      color: #d1d5db;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 0.85em;
+      color: #9ca3af;
+      margin-top: 40px;
+      font-style: italic;
+    }
+
+    .signature-img {
+      max-width: 120px;
+      margin-top: 5px;
+    }
+
+    .toc {
+      margin: 20px 0;
+      padding: 15px;
+      background: #334155;
+      border-radius: 5px;
+      font-size: 0.95em;
+    }
+
+    .toc h4 {
+      margin-bottom: 10px;
+      background: none;
+      color: #93c5fd;
+      padding: 0;
+    }
+
+    .toc ul {
+      padding-left: 20px;
+    }
+
+    .toc li {
+      margin-bottom: 4px;
+    }
+
+    @media print {
+      body {
+        background: white !important;
+        color: black !important;
+        margin: 0;
+        padding: 10mm;
+      }
+
+      .section {
+        background: white !important;
+        color: black !important;
+        page-break-inside: avoid;
+      }
+
+      h4 {
+        background: #28a745 !important;
+        color: white !important;
+      }
+
+      .label, .col-label {
+        color: black !important;
+      }
+
+      .value, .col-value {
+        color: #222 !important;
+      }
+
+      .footer {
+        color: #666 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    {% if logo_data_uri %}
+      <img src="{{ logo_data_uri }}" alt="Parliament Logo" class="logo">
+    {% else %}
+      <div style="color:#9ca3af">[Parliament Logo]</div>
+    {% endif %}
+    <h1>E-Parliament Requirements Form</h1>
+    <p class="subtitle">Submitted by {{ user.get_full_name|default:user.username }} ({{ user.username }})</p>
+  </div>
+
+  <!-- Optional Table of Contents -->
+  <div class="toc">
+    <h4>Contents</h4>
+    <ul>
+      <li>1. User Information</li>
+      <li>2. Process Information</li>
+      <li>3. Section-Wise Answers</li>
+      <li>4. Submission Details</li>
+    </ul>
+  </div>
+
+  <!-- User Info -->
+  <div class="section">
+    <h4>1. User Information</h4>
+    <table class="info-table">
+      <tr><td class="label">Name:</td><td class="value">{{ user.get_full_name|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+      <tr><td class="label">Designation:</td><td class="value">{{ user.designation|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+      <tr><td class="label">Wing:</td><td class="value">{{ user.wing_name|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+      <tr><td class="label">Department:</td><td class="value">{{ user.department_name|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+      <tr><td class="label">Section:</td><td class="value">{{ user.section_name|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+      <tr><td class="label">Contact:</td><td class="value">{{ user.email|default:"<span class='na'>N/A</span>"|safe }} / {{ user.mobile|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Process Info -->
+  <div class="section">
+    <h4>2. Process Information</h4>
+    <table class="info-table">
+      <tr><td class="label">Process Name:</td><td class="value">{{ form.process_name|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+      <tr><td class="label">Current Process Type:</td><td class="value">{{ form.get_current_process_display|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+      <tr><td class="label">Digital Software Used:</td><td class="value">{{ form.digital_software|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Dynamic Sections -->
+  {% for section_data in sections_with_answers %}
+  <div class="section">
+    <h4>3. {{ section_data.section.title }}</h4>
+    {% if section_data.section.description %}
+      <p style="color:#9ca3af; margin-top:-10px; margin-bottom:10px;">{{ section_data.section.description }}</p>
+    {% endif %}
+    {% for answer in section_data.answers %}
+    <div class="row">
+      <div class="col-label">{{ answer.question.question_text }}:</div>
+      <div class="col-value">{{ answer.answer_text|default:"<span class='na'>N/A</span>"|safe }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  <!-- Submission Info -->
+  <div class="section">
+    <h4>4. Submission Details</h4>
+    <table class="info-table">
+      <tr><td class="label">Status:</td><td class="value">{{ form.get_status_display|default:"<span class='na'>N/A</span>"|safe }}</td></tr>
+      <tr>
+        <td class="label">Last Updated:</td>
+        <td class="value">{{ form.updated_at|date:"d F, Y (h:i:s A)"|default:"<span class='na'>N/A</span>"|safe }}</td>
+      </tr>
+      {% if form.status == 'submitted' %}
+      <tr>
+        <td class="label">Submitted At:</td>
+        <td class="value">{{ form.submitted_at|date:"d F, Y (h:i:s A)"|default:"<span class='na'>N/A</span>"|safe }}</td>
+      </tr>
+      <tr>
+        <td class="label">Digital Signature:</td>
+        <td class="value">
+          {% if user.signature %}
+            <img src="{{ user.signature.uri }}" alt="Signature" class="signature-img">
+            <p style="font-size: 0.85em; color: #9ca3af;">Signed electronically by {{ user.get_full_name }}</p>
+          {% else %}
+            <p class='na'>No signature available</p>
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %}
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>Generated on {{ current_date|date:"F d, Y h:i:s A" }}</p>
+    <p>System Generated &copy; Software Development Section - B&IT Wing</p>
+  </div>
+</body>
+</html>

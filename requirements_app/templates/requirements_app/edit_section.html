@@ -1,0 +1,98 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}{{ title }} - E-Parliament Bangladesh{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2>{{ title }}</h2>
+        <p class="text-muted">Manage section details for the requirement form</p>
+    </div>
+</div>
+
+{% if messages %}
+    <div class="row">
+        <div class="col-md-12">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label for="{{ form.title.id_for_label }}">Title *</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.title.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.description.id_for_label }}">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.description.errors }}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted">Provide a brief description of this section's purpose</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.order.id_for_label }}">Order</label>
+                        {{ form.order }}
+                        <small class="form-text text-muted">Lower numbers appear first</small>
+                        {% if form.order.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.order.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="custom-control custom-switch">
+                            {{ form.is_active }}
+                            <label class="custom-control-label" for="{{ form.is_active.id_for_label }}">Active</label>
+                        </div>
+                        <small class="form-text text-muted">If unchecked, this section will not appear in the form</small>
+                    </div>
+                    
+                    <div class="form-group text-center mt-4">
+                        <a href="{% url 'manage_form_structure' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if is_edit %}Update{% else %}Create{% endif %} Section
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Add Bootstrap classes to form fields
+        $('#{{ form.title.id_for_label }}').addClass('form-control');
+        $('#{{ form.description.id_for_label }}').addClass('form-control');
+        $('#{{ form.order.id_for_label }}').addClass('form-control');
+        $('#{{ form.is_active.id_for_label }}').addClass('custom-control-input');
+    });
+</script>
+{% endblock %}

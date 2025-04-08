@@ -1,0 +1,158 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}View User Form - E-Parliament Bangladesh{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        margin-bottom: 2rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 1.5rem;
+        background-color: #f9f9f9;
+    }
+    .form-section-title {
+        background-color: #28a745;
+        color: white;
+        padding: 10px 15px;
+        margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+        border-radius: 5px 5px 0 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>View Form for {{ form.user.get_full_name }}</h2>
+            <div>
+                <a href="{% url 'view_responses' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Responses</a>
+                <a href="{% url 'download_user_pdf' form.id %}" class="btn btn-primary"><i class="fas fa-download"></i> Download PDF</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        <!-- User Information -->
+        <div class="form-section">
+            <h4 class="form-section-title">User Information</h4>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Name:</strong></label>
+                        <p>{{ form.user.get_full_name }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Designation:</strong></label>
+                        <p>{{ form.user.designation }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Wing Name:</strong></label>
+                        <p>{{ form.user.wing_name }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Department Name:</strong></label>
+                        <p>{{ form.user.department_name }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Section Name:</strong></label>
+                        <p>{{ form.user.section_name }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Contact:</strong></label>
+                        <p>{{ form.user.email }} / {{ form.user.mobile }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Process Information -->
+        <div class="form-section">
+            <h4 class="form-section-title">Process Information</h4>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Process Name:</strong></label>
+                    <p>{{ form.process_name }}</p>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Current Process Type:</strong></label>
+                    <p>{{ form.get_current_process_display }}</p>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Digital Software Used (if applicable):</strong></label>
+                    <p>{{ form.digital_software }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Sections -->
+        {% for section_data in sections_with_answers %}
+        <div class="form-section">
+            <h4 class="form-section-title">{{ section_data.section.title }}</h4>
+            {% if section_data.section.description %}
+            <p class="text-muted mb-4">{{ section_data.section.description }}</p>
+            {% endif %}
+            
+            {% for answer in section_data.answers %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>{{ answer.question.question_text }}</strong></label>
+                    <p>{{ answer.answer_text }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        <!-- Submission Details -->
+        <div class="form-section">
+            <h4 class="form-section-title">Submission Details</h4>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label><strong>Status:</strong></label>
+                    <p>{{ form.get_status_display }}</p>
+                </div>
+                <div class="col-md-6">
+                    <label><strong>Last Updated:</strong></label>
+                    <p>{{ form.updated_at }}</p>
+                </div>
+            </div>
+            {% if form.status == 'submitted' %}
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label><strong>Submitted At:</strong></label>
+                    <p>{{ form.submitted_at }}</p>
+                </div>
+                <div class="col-md-6">
+                    <label><strong>Digital Signature:</strong></label>
+                    {% if form.user.signature %}
+                    <p><img src="{{ form.user.signature.url }}" alt="Signature" width="150"></p>
+                    {% else %}
+                    <p>No signature available.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

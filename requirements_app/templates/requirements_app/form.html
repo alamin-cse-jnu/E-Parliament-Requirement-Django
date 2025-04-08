@@ -1,0 +1,199 @@
+{% extends "requirements_app/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Requirements Form - E-Parliament Bangladesh{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        margin-bottom: 2rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 1.5rem;
+        background-color: #f9f9f9;
+    }
+    .form-section-title {
+        background-color: #28a745;
+        color: white;
+        padding: 10px 15px;
+        margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+        border-radius: 5px 5px 0 0;
+    }
+    .btn-save-draft {
+        background-color: #6c757d;
+        color: white;
+    }
+    .btn-submit {
+        background-color: #28a745;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>E-Parliament Requirements Form</h2>
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+            </div>
+        </div>
+        <p class="text-muted">Please fill out this form to help us understand your needs for the E-Parliament system.</p>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        <form method="post" id="requirements-form" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <!-- User Information -->
+            <div class="form-section">
+                <h4 class="form-section-title">User Information</h4>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Name:</strong></label>
+                            <p>{{ user.get_full_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Designation:</strong></label>
+                            <p>{{ user.designation }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Wing Name:</strong></label>
+                            <p>{{ user.wing_name }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Department Name:</strong></label>
+                            <p>{{ user.department_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Section Name:</strong></label>
+                            <p>{{ user.section_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Contact:</strong></label>
+                            <p>{{ user.email }} / {{ user.mobile }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Basic Form Fields -->
+            <div class="form-section">
+                <h4 class="form-section-title">Process Information</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label><strong>Process Name:</strong></label>
+                        {{ basic_form.process_name|as_crispy_field }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label><strong>Current Process Type:</strong></label>
+                        {{ basic_form.current_process|as_crispy_field }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label><strong>Digital Software Used (if applicable):</strong></label>
+                        {{ basic_form.digital_software|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dynamic Form Sections -->
+            {% for section_data in sections_with_questions %}
+            <div class="form-section">
+                <h4 class="form-section-title">{{ section_data.section.title }}</h4>
+                {% if section_data.section.description %}
+                <p class="text-muted mb-4">{{ section_data.section.description }}</p>
+                {% endif %}
+                
+                {% for question_item in section_data.questions %}
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label>
+                            <strong>{{ question_item.question.question_text }}</strong>
+                            {% if question_item.question.is_required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        {% if question_item.question.help_text %}
+                        <small class="form-text text-muted">{{ question_item.question.help_text }}</small>
+                        {% endif %}
+                        {{ question_item.field }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            
+            <div class="form-section">
+                <h4 class="form-section-title">Attachment</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label><strong>PDF Attachment:</strong></label>
+                        <input type="file" name="attachment" class="form-control" accept=".pdf">
+                        <small class="form-text text-muted">Please attach a PDF file (if required).</small>
+                    </div>
+                </div>
+            </div>
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between mt-4">
+                <button type="submit" name="save_draft" class="btn btn-lg btn-save-draft">
+                    <i class="fas fa-save me-2"></i> Save Draft
+                </button>
+                <button type="submit" name="submit" class="btn btn-lg btn-submit">
+                    <i class="fas fa-paper-plane me-2"></i> Submit Form
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-save draft every 2 minutes
+    let autoSaveInterval = 2 * 60 * 1000; // 2 minutes in milliseconds
+    
+    function autoSaveDraft() {
+        let formData = new FormData(document.getElementById('requirements-form'));
+        formData.append('save_draft', 'true');
+        
+        fetch('{% url "form" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Form auto-saved at ' + new Date().toLocaleTimeString());
+            }
+        })
+        .catch(error => {
+            console.error('Error auto-saving form:', error);
+        });
+    }
+    
+    // Set up auto-save timer
+    setInterval(autoSaveDraft, autoSaveInterval);
+</script>
+{% endblock %}

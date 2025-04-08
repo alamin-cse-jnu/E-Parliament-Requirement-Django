@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Parliament Requirements Form - PDF</title>
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            margin: 30px;
+            color: #333;
+            line-height: 1.5;
+            background-color: #fff;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .logo {
+            max-width: 120px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #28a745;
+            font-size: 1.8em;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+        .subtitle {
+            font-size: 1em;
+            color: #666;
+            margin-top: 4px;
+        }
+        hr {
+            border-top: 1px solid #28a745;
+            margin: 20px 0;
+        }
+        .section {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #fdfdfd;
+        }
+        h4 {
+            background-color: #28a745;
+            color: white;
+            padding: 8px 12px;
+            margin: -15px -15px 15px -15px;
+            border-radius: 6px 6px 0 0;
+            font-size: 1.2em;
+        }
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .info-table td {
+            padding: 6px 10px;
+            vertical-align: top;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #333;
+            width: 30%;
+            white-space: nowrap;
+        }
+        .info-value {
+            color: #555;
+            width: 70%;
+        }
+        .row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .col-label {
+            width: 35%;
+            font-weight: bold;
+            color: #444;
+        }
+        .col-value {
+            width: 65%;
+            color: #555;
+        }
+        .footer {
+            text-align: center;
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 30px;
+            font-style: italic;
+        }
+        .signature-img {
+            max-width: 120px;
+            margin-top: 5px;
+        }
+        @media print {
+            body {
+                margin: 0;
+                padding: 10mm;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {% if logo_data_uri %}
+            <img src="{{ logo_data_uri }}" alt="Parliament Logo" class="logo">
+        {% else %}
+            <div class="no-logo">[Parliament Logo]</div>
+        {% endif %}
+        <h1>E-Parliament Requirements Form</h1>
+        <p class="subtitle">Submitted by {{ user.get_full_name|default:user.username }} ({{ user.username }})</p>
+    </div>
+
+    <hr>
+
+    <!-- User Information -->
+    <div class="section">
+        <h4>User Information</h4>
+        <table class="info-table">
+            <tr>
+                <td class="info-label">Name:</td>
+                <td class="info-value">{{ user.get_full_name|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Designation:</td>
+                <td class="info-value">{{ user.designation|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Wing:</td>
+                <td class="info-value">{{ user.wing_name|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Department:</td>
+                <td class="info-value">{{ user.department_name|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Section:</td>
+                <td class="info-value">{{ user.section_name|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Contact:</td>
+                <td class="info-value">{{ user.email|default:"N/A" }} / {{ user.mobile|default:"N/A" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Process Information -->
+    <div class="section">
+        <h4>Process Information</h4>
+        <table class="info-table">
+            <tr>
+                <td class="info-label">Process Name:</td>
+                <td class="info-value">{{ form.process_name|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Current Process Type:</td>
+                <td class="info-value">{{ form.get_current_process_display|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Digital Software Used:</td>
+                <td class="info-value">{{ form.digital_software|default:"N/A" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Dynamic Sections -->
+    {% for section_data in sections_with_answers %}
+    <div class="section">
+        <h4>{{ section_data.section.title }}</h4>
+        {% if section_data.section.description %}
+        <p style="margin-top: -10px; margin-bottom: 10px; color: #666;">{{ section_data.section.description }}</p>
+        {% endif %}
+        {% for answer in section_data.answers %}
+        <div class="row">
+            <div class="col-label">{{ answer.question.question_text }}:</div>
+            <div class="col-value">{{ answer.answer_text|default:"N/A" }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    <!-- Submission Details -->
+    <div class="section">
+        <h4>Submission Details</h4>
+        <table class="info-table">
+            <tr>
+                <td class="info-label">Status:</td>
+                <td class="info-value">{{ form.get_status_display|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Last Updated:</td>
+                <td class="info-value">{{ form.updated_at|default:"N/A" }}</td>
+            </tr>
+            {% if form.status == 'submitted' %}
+            <tr>
+                <td class="info-label">Submitted At:</td>
+                <td class="info-value">{{ form.submitted_at|default:"N/A" }}</td>
+            </tr>
+            <tr>
+                <td class="info-label">Digital Signature:</td>
+                <td class="info-value">
+                    {% if user.signature %}
+                    <img src="{{ user.signature.uri }}" alt="Signature" class="signature-img">
+                    {% else %}
+                    <p>No signature available.</p>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>Generated on {{ current_date|date:"F d, Y h:i:s A" }}</p>
+        <p>System Generated &copy; Software Development Section - B&IT Wing</p>
+    </div>
+</body>
+</html>
