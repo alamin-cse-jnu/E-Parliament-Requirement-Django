@@ -25,6 +25,8 @@ services:
   db:
     image: mysql:8.0
     restart: always
+    ports:
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     environment:
@@ -33,16 +35,16 @@ services:
       - MYSQL_PASSWORD=eparliament_password
       - MYSQL_ROOT_PASSWORD=root_password
 
-  # nginx:
-  #   image: nginx:latest
-  #   ports:
-  #     - "80:80"
-  #   volumes:
-  #     - ./nginx/conf.d:/etc/nginx/conf.d
-  #     - media_volume:/app/media
-  #     - static_volume:/app/staticfiles
-  #   depends_on:
-  #     - web
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - media_volume:/app/media
+      - static_volume:/app/staticfiles
+    depends_on:
+      - web
 
 volumes:
   mysql_data:
