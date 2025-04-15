@@ -154,14 +154,14 @@
                 </div>
                 <div class="row mb-3">
                     <div class="col-md-12">
-                        <label class="form-label required-field">Process Flowchart (PDF):</label>
+                        <label class="form-label">Process Flowchart (PDF):</label>
                         {% if is_draft and basic_form.instance.flowchart %}
                             <p>Current file: <a href="{{ basic_form.instance.flowchart.url }}" target="_blank">{{ basic_form.instance.flowchart.name }}</a></p>
                             <input type="file" name="flowchart" class="form-control" accept=".pdf">
                             <small class="form-text text-muted">Upload a new file only if you want to replace the current one.</small>
                         {% else %}
-                            <input type="file" name="flowchart" class="form-control" accept=".pdf" required>
-                            <small class="form-text text-muted">Please attach a PDF flowchart of your process. This is required for submission.</small>
+                            <input type="file" name="flowchart" class="form-control" accept=".pdf">
+                            <small class="form-text text-muted">Please attach a PDF flowchart of your process (optional).</small>
                         {% endif %}
                     </div>
                 </div>

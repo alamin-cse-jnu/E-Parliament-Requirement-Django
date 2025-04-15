@@ -134,13 +134,10 @@ def form_view(request, form_id=None):
                             messages.error(request, "Attachment must be a PDF file.")
                             return redirect('form_view' if not form_id else 'form_view', form_id=form_id)
                         
-                    # Handle flowchart upload (required)
+                    # Handle flowchart upload (optional)
                     if 'flowchart' in request.FILES:
                         file = request.FILES['flowchart']
-                        if file.name.endswith('.pdf'):
-                            # The model will handle the filename with the custom upload path
-                            pass
-                        else:
+                        if not file.name.endswith('.pdf'):
                             messages.error(request, "Flowchart must be a PDF file.")
                             return redirect('form_view' if not form_id else 'form_view', form_id=form_id)
                     

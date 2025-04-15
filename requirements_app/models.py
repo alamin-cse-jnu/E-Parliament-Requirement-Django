@@ -156,7 +156,7 @@ class RequirementForm(models.Model):
     process_name = models.CharField(max_length=100, blank=False)
     process_description = models.TextField(blank=False)
     process_steps_detail = models.JSONField(default=list, blank=True)
-    flowchart = models.FileField(upload_to='attachments/', blank=False, null=False)
+    flowchart = models.FileField(upload_to='attachments/', blank=True, null=False)
     
     # fields for Process Efficiency Analysis
     time_taken = models.PositiveIntegerField(blank=False)
@@ -204,7 +204,7 @@ class RequirementForm(models.Model):
         return f'attachments/{instance.user.username}_DataFlow.pdf'
     
     # Update flowchart field to use custom path
-    flowchart = models.FileField(upload_to=get_flowchart_upload_path, blank=False, null=True)
+    flowchart = models.FileField(upload_to=get_flowchart_upload_path, blank=True, null=True)
 
 class FormResponse(models.Model):
     form = models.ForeignKey(RequirementForm, on_delete=models.CASCADE, related_name='form_responses')

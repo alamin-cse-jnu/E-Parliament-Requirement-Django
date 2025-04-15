@@ -62,7 +62,7 @@ class RequirementFormForm(forms.ModelForm):
             'external_connectivity_details': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
             'expected_reports': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Describe expected reports from the new system'}),
             'expected_analysis': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Describe what kind of analysis you expect'}),
-            'flowchart': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf', 'required': 'required'}),
+            'flowchart': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf'}),
             'attachment': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf'}),
         }
 
