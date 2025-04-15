@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - media_volume:/app/media
+      - static_volume:/app/staticfiles
+    depends_on:
+      - db
+    environment:
+      - DB_NAME=eparliament_db
+      - DB_USER=eparliament_user
+      - DB_PASSWORD=eparliament_password
+      - DB_HOST=db
+      - DB_PORT=3306
+      - SECRET_KEY=change_this_to_a_secure_random_key
+      - DEBUG=False
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+
+  db:
+    image: mysql:8.0
+    restart: always
+    volumes:
+      - mysql_data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=eparliament_db
+      - MYSQL_USER=eparliament_user
+      - MYSQL_PASSWORD=eparliament_password
+      - MYSQL_ROOT_PASSWORD=root_password
+
+  # nginx:
+  #   image: nginx:latest
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx/conf.d:/etc/nginx/conf.d
+  #     - media_volume:/app/media
+  #     - static_volume:/app/staticfiles
+  #   depends_on:
+  #     - web
+
+volumes:
+  mysql_data:
+  media_volume:
+  static_volume:

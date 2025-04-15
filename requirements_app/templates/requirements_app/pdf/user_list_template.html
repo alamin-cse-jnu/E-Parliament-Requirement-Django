@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User List</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            line-height: 1.5;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1, h3 { 
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #28a745;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #28a745; 
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f2f2f2;
+        }
+        .logo { 
+            display: block; 
+            margin: 0 auto 20px auto; 
+            width: 120px;
+            height: auto;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin-top: 30px;
+        }
+        .user-count {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        .user-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-width: 150px;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+            margin: 10px 0;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {% if logo_data_uri %}
+            <img src="{{ logo_data_uri }}" alt="Parliament Logo" class="logo">
+        {% else %}
+            <div class="no-logo">Parliament Logo</div>
+        {% endif %}
+        <h1>E-Parliament Bangladesh</h1>
+        <h3>User Management Report</h3>
+    </div>
+    
+    <div class="user-stats">
+        <div class="stat-box">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-number">{{ users|length }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Administrators</div>
+            <div class="stat-number">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Standard Users</div>
+            <div class="stat-number">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</div>
+        </div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Username</th>
+                <th>Full Name</th>
+                <th>Role</th>
+                <th>Designation</th>
+                <th>Wing</th>
+                <th>Department</th>
+                <th>Section</th>
+                <th>Mobile</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.get_full_name }}</td>
+                <td>{{ user.get_role_display }}</td>
+                <td>{{ user.designation|default:"N/A" }}</td>
+                <td>{{ user.wing_name|default:"N/A" }}</td>
+                <td>{{ user.department_name|default:"N/A" }}</td>
+                <td>{{ user.section_name|default:"N/A" }}</td>
+                <td>{{ user.mobile|default:"N/A" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" style="text-align: center;">No users found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        <p>Generated on {{ current_date|date:"F d, Y" }}</p>
+        <p>System Generated &copy; Software Development Section - B&IT Wing</p>
+        <p>E-Parliament Bangladesh Project</p>
+    </div>
+</body>
+</html>

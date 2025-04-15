@@ -1,0 +1,77 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}Your Submissions - E-Parliament Bangladesh{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-file-alt me-2 text-primary"></i>Your Submissions</h2>
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                <a href="{% url 'form' %}" class="btn btn-success"><i class="fas fa-plus"></i> Submit New Form</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        {% if forms %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Serial No.</th>
+                        <th>Process Name</th>
+                        <th>Submitted At</th>
+                        <th>Files</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in forms %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><span class="fw-semibold">{{ form.process_name }}</span></td>
+                        <td>{{ form.submitted_at|date:"F d, Y H:i" }}</td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% if form.flowchart %}
+                                <a href="{{ form.flowchart.url }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                    <i class="fas fa-project-diagram me-1"></i> Flowchart
+                                </a>
+                                {% endif %}
+                                
+                                {% if form.has_attachment %}
+                                <a href="{{ form.attachment.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-paperclip me-1"></i> Attachment
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a href="{% url 'view_form' form.id %}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye me-1"></i> View
+                                </a>
+                                <a href="{% url 'download_pdf' form.id %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-download me-1"></i> PDF
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <h5><i class="fas fa-info-circle me-2"></i> No Submissions Yet</h5>
+            <p>You haven't submitted any forms yet.</p>
+            <a href="{% url 'form' %}" class="btn btn-primary mt-2">Submit a Form</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

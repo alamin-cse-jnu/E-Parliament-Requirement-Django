@@ -1,0 +1,521 @@
+{% extends "requirements_app/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Requirements Form - E-Parliament Bangladesh{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        margin-bottom: 2rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 1.5rem;
+        background-color: #f9f9f9;
+    }
+    .form-section-title {
+        background-color: #28a745;
+        color: white;
+        padding: 10px 15px;
+        margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+        border-radius: 5px 5px 0 0;
+    }
+    .btn-save-draft {
+        background-color: #6c757d;
+        color: white;
+    }
+    .btn-submit {
+        background-color: #28a745;
+        color: white;
+    }
+    .table-params th {
+        background-color: #f2f2f2;
+        font-weight: 600;
+    }
+    .connectivity-details {
+        margin-top: 10px;
+        display: none;
+    }
+    .form-label {
+        font-weight: 500;
+    }
+    .required-field:after {
+        content: "*";
+        color: red;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>{% if is_draft %}Edit Draft Form{% else %}E-Parliament Requirements Form{% endif %}</h2>
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+            </div>
+        </div>
+        <p class="text-muted">
+            {% if is_draft %}
+            Continue editing your draft form. You can save it again as a draft or submit it when complete.
+            {% else %}
+            Please fill out this form to help us understand your needs for the E-Parliament system.
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+{% if process_name_error %}
+<div class="alert alert-danger">
+    <i class="fas fa-exclamation-circle me-2"></i> {{ process_name_error }}
+</div>
+{% endif %}
+
+<div class="card shadow">
+    <div class="card-body">
+        <form method="post" id="requirements-form" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <!-- User Information -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-user me-2"></i>User Information</h4>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Name:</strong></label>
+                            <p>{{ user.get_full_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Designation:</strong></label>
+                            <p>{{ user.designation }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Wing Name:</strong></label>
+                            <p>{{ user.wing_name }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Department Name:</strong></label>
+                            <p>{{ user.department_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Section Name:</strong></label>
+                            <p>{{ user.section_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Contact:</strong></label>
+                            <p>{{ user.email }} / {{ user.mobile }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section A: Process Information -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-info-circle me-2"></i>Section A: Process Information</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Service/Process Name:</label>
+                        {{ basic_form.process_name }}
+                        {% if is_draft %}
+                        <small class="text-muted">You are editing a draft. Changing the process name will create a new form.</small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Serivice / Process Overview:</label>
+                        {{ basic_form.process_description }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Process Steps:</label>
+                        <div id="process-steps-container">
+                            <!-- Default 10 steps will be added here dynamically -->
+                        </div>
+                        <input type="hidden" name="process_steps_detail" id="process-steps-detail">
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-success" id="add-step-btn">
+                                <i class="fas fa-plus"></i> Add Step
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Process Flowchart (PDF):</label>
+                        {% if is_draft and basic_form.instance.flowchart %}
+                            <p>Current file: <a href="{{ basic_form.instance.flowchart.url }}" target="_blank">{{ basic_form.instance.flowchart.name }}</a></p>
+                            <input type="file" name="flowchart" class="form-control" accept=".pdf">
+                            <small class="form-text text-muted">Upload a new file only if you want to replace the current one.</small>
+                        {% else %}
+                            <input type="file" name="flowchart" class="form-control" accept=".pdf" required>
+                            <small class="form-text text-muted">Please attach a PDF flowchart of your process. This is required for submission.</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section B: Process Efficiency Analysis -->
+            <div class="form-section">
+                <h4 class="form-section-title required-field"><i class="fas fa-chart-line me-2"></i>Section B: Process Efficiency Analysis</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-params">
+                        <thead>
+                            <tr>
+                                <th width="5%">Sl.</th>
+                                <th width="40%">Parameter</th>
+                                <th width="55%">Current Method</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-center">1</td>
+                                <td>Time Taken per Task</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.time_taken }}
+                                        <span class="input-group-text">Days</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">2</td>
+                                <td>Number of People Involved</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.people_involved }}
+                                        <span class="input-group-text">People</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">3</td>
+                                <td>Process Steps</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.process_steps }}
+                                        <span class="input-group-text">Steps</span>
+                                    </div>
+                                </td>
+                            <!-- </tr>
+                            <tr>
+                                <td class="text-center">4</td>
+                                <td>Error Possibility</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.error_possibility }}
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">4</td>
+                                <td>Ease of Access (find out certain file or report from the past)</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.ease_of_access }}
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                            </tr> -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Section C: Expectations from New Software -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-laptop-code me-2"></i>Section C: Expectations from New Software</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">List of Features you expect (based on your process Description):</label>
+                        {{ basic_form.expected_features }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Do you need connectivity of this system with other offices (inside parliament):</label>
+                        {{ basic_form.internal_connectivity }}
+                    </div>
+                </div>
+                <div class="row mb-3 internal-connectivity-details connectivity-details">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Which Offices are need to be connected and what are the tasks:</label>
+                        {{ basic_form.internal_connectivity_details }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Do you need connectivity of this system with other Ministries/Agencies (outside parliament):</label>
+                        {{ basic_form.external_connectivity }}
+                    </div>
+                </div>
+                <div class="row mb-3 external-connectivity-details connectivity-details">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Which Offices are need to be connected and what are the tasks:</label>
+                        {{ basic_form.external_connectivity_details }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section D: Report and Data Analysis -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-file-alt me-2"></i>Section D: Report and Data Analysis</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Expected reports from the new system:</label>
+                        {{ basic_form.expected_reports }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">What kind of Analysis you Expected:</label>
+                        {{ basic_form.expected_analysis }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dynamic Form Sections -->
+            {% for section_data in sections_with_questions %}
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-tasks me-2"></i>{{ section_data.section.title }}</h4>
+                {% if section_data.section.description %}
+                <p class="text-muted mb-4">{{ section_data.section.description }}</p>
+                {% endif %}
+                
+                {% for question_item in section_data.questions %}
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label {% if question_item.question.is_required %}required-field{% endif %}">
+                            {{ question_item.question.question_text }}
+                        </label>
+                        {% if question_item.question.help_text %}
+                        <small class="form-text text-muted">{{ question_item.question.help_text }}</small>
+                        {% endif %}
+                        {{ question_item.field }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            
+            <!-- Section F: Upload Attachment -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-paperclip me-2"></i>Section F: Upload Attachment</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">PDF Attachment:</label>
+                        {% if is_draft and basic_form.instance.attachment %}
+                            <p>Current file: <a href="{{ basic_form.instance.attachment.url }}" target="_blank">{{ basic_form.instance.attachment.name }}</a></p>
+                            <input type="file" name="attachment" class="form-control" accept=".pdf">
+                            <small class="form-text text-muted">Upload a new file only if you want to replace the current one.</small>
+                        {% else %}
+                            <input type="file" name="attachment" class="form-control" accept=".pdf">
+                            <small class="form-text text-muted">Please attach a PDF file (if required).</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between mt-4">
+                <button type="submit" name="save_draft" class="btn btn-lg btn-save-draft">
+                    <i class="fas fa-save me-2"></i> Save Draft
+                </button>
+                <button type="submit" name="review" class="btn btn-lg btn-primary">
+                    <i class="fas fa-eye me-2"></i> Review Form
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle internal connectivity details based on selection
+        const internalConnectivity = document.querySelector('[name="internal_connectivity"]');
+        const internalConnectivityDetails = document.querySelector('.internal-connectivity-details');
+        
+        function toggleInternalConnectivityDetails() {
+            if (internalConnectivity.value === 'yes') {
+                internalConnectivityDetails.style.display = 'block';
+            } else {
+                internalConnectivityDetails.style.display = 'none';
+            }
+        }
+        
+        internalConnectivity.addEventListener('change', toggleInternalConnectivityDetails);
+        toggleInternalConnectivityDetails(); // Initialize on page load
+        
+        // Toggle external connectivity details based on selection
+        const externalConnectivity = document.querySelector('[name="external_connectivity"]');
+        const externalConnectivityDetails = document.querySelector('.external-connectivity-details');
+        
+        function toggleExternalConnectivityDetails() {
+            if (externalConnectivity.value === 'yes') {
+                externalConnectivityDetails.style.display = 'block';
+            } else {
+                externalConnectivityDetails.style.display = 'none';
+            }
+        }
+        
+        externalConnectivity.addEventListener('change', toggleExternalConnectivityDetails);
+        toggleExternalConnectivityDetails(); // Initialize on page load
+    });
+
+    // Process Steps functionality
+const processStepsContainer = document.getElementById('process-steps-container');
+const processStepsDetail = document.getElementById('process-steps-detail');
+const addStepBtn = document.getElementById('add-step-btn');
+
+// Function to create a step input
+function createStepInput(stepNumber, value = '') {
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'input-group mb-2 process-step';
+    stepDiv.dataset.step = stepNumber;
+    
+    const stepLabel = document.createElement('span');
+    stepLabel.className = 'input-group-text bg-primary text-white';
+    stepLabel.style.width = '80px';
+    stepLabel.textContent = `Step ${stepNumber}:`;
+    
+    const stepInput = document.createElement('input');
+    stepInput.type = 'text';
+    stepInput.className = 'form-control step-input';
+    stepInput.value = value;
+    stepInput.placeholder = `Enter step ${stepNumber} details...`;
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-outline-danger';
+    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    removeBtn.onclick = function() {
+        stepDiv.remove();
+        updateStepNumbers();
+        updateHiddenField();
+    };
+    
+    stepDiv.appendChild(stepLabel);
+    stepDiv.appendChild(stepInput);
+    stepDiv.appendChild(removeBtn);
+    
+    return stepDiv;
+}
+
+// Function to update step numbers
+function updateStepNumbers() {
+    const steps = processStepsContainer.querySelectorAll('.process-step');
+    steps.forEach((step, index) => {
+        const stepNumber = index + 1;
+        step.dataset.step = stepNumber;
+        step.querySelector('.input-group-text').textContent = `Step ${stepNumber}:`;
+        step.querySelector('input').placeholder = `Enter step ${stepNumber} details...`;
+    });
+}
+
+// Function to update the hidden field with steps data
+function updateHiddenField() {
+    const steps = [];
+    const stepInputs = processStepsContainer.querySelectorAll('.step-input');
+    
+    stepInputs.forEach((input, index) => {
+        if (input.value.trim() !== '') {
+            steps.push({
+                number: index + 1,
+                description: input.value.trim()
+            });
+        }
+    });
+    
+    processStepsDetail.value = JSON.stringify(steps);
+    console.log("Updated steps:", processStepsDetail.value);
+}
+
+// Add event listener to add step button
+addStepBtn.addEventListener('click', function() {
+    const stepCount = processStepsContainer.querySelectorAll('.process-step').length;
+    processStepsContainer.appendChild(createStepInput(stepCount + 1));
+    updateHiddenField();
+});
+
+// Add default 10 steps on page load
+function initializeSteps() {
+    // Make sure the process_steps_detail value is properly formatted
+    let existingSteps = [];
+    
+    try {
+        // This should get the raw JSON string and parse it
+        const stepsJson = document.getElementById('process-steps-detail').value;
+        if (stepsJson && stepsJson !== '[]') {
+            existingSteps = JSON.parse(stepsJson);
+        }
+    } catch (e) {
+        console.error('Error parsing existing steps:', e);
+    }
+    
+    if (existingSteps.length > 0) {
+        // Add existing steps
+        existingSteps.forEach(step => {
+            processStepsContainer.appendChild(createStepInput(step.number, step.description));
+        });
+    } else {
+        // Add default empty steps
+        for (let i = 1; i <= 10; i++) {
+            processStepsContainer.appendChild(createStepInput(i));
+        }
+    }
+    
+    // Update hidden field on any input changes
+    processStepsContainer.addEventListener('input', updateHiddenField);
+    updateHiddenField();
+}
+
+// Call initialize function
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSteps();
+});
+
+    // Auto-save draft every 2 minutes
+    let autoSaveInterval = 2 * 60 * 1000; // 2 minutes in milliseconds
+    
+    function autoSaveDraft() {
+        let formData = new FormData(document.getElementById('requirements-form'));
+        formData.append('save_draft', 'true');
+        
+        fetch('{% if form_id %}{% url "form_view" form_id %}{% else %}{% url "form" %}{% endif %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Form auto-saved at ' + new Date().toLocaleTimeString());
+            }
+        })
+        .catch(error => {
+            console.error('Error auto-saving form:', error);
+        });
+    }
+    
+    // Set up auto-save timer
+    setInterval(autoSaveDraft, autoSaveInterval);
+</script>
+{% endblock %}

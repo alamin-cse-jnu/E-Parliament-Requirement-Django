@@ -1,0 +1,577 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}Data Analysis - E-Parliament Bangladesh{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .dashboard-card {
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+        transition: transform 0.3s;
+    }
+    
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .card-header-primary {
+        background: linear-gradient(45deg, #4285f4, #5b9aff);
+        color: white;
+        padding: 15px;
+    }
+    
+    .card-header-success {
+        background: linear-gradient(45deg, #0f9d58, #54c986);
+        color: white;
+        padding: 15px;
+    }
+    
+    .card-header-warning {
+        background: linear-gradient(45deg, #f4b400, #f9ca64);
+        color: white;
+        padding: 15px;
+    }
+    
+    .card-header-info {
+        background: linear-gradient(45deg, #16aee0, #72cbf3);
+        color: white;
+        padding: 15px;
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+    
+    .info-box {
+        background-color: #e8f4fd;
+        border-left: 4px solid #4285f4;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-chart-line text-primary me-2"></i>Data Analysis</h2>
+            <div>
+                <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary me-2">
+                    <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                </a>
+                <a href="{% url 'reports' %}" class="btn btn-success">
+                    <i class="fas fa-file-pdf me-1"></i> Reports
+                </a>
+            </div>
+        </div>
+        <p class="text-muted">Comprehensive analysis of user submissions and responses</p>
+    </div>
+</div>
+
+<!-- Statistics Overview Cards -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-header-primary">
+                <h5 class="card-title mb-0"><i class="fas fa-users me-2"></i>Total Users</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="stat-value">{{ total_users }}</div>
+                <div class="text-muted">Registered in the system</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-header-success">
+                <h5 class="card-title mb-0"><i class="fas fa-check-circle me-2"></i>Submissions</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="stat-value">{{ submitted_forms }}</div>
+                <div class="text-muted">Total forms submitted</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-header-warning">
+                <h5 class="card-title mb-0"><i class="fas fa-percentage me-2"></i>Response Rate</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="stat-value">{{ response_rate|floatformat:1 }}%</div>
+                <div class="text-muted">User participation</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="dashboard-card">
+            <div class="card-header-info">
+                <h5 class="card-title mb-0"><i class="fas fa-clock me-2"></i>Avg. Completion</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="stat-value">{{ avg_completion_time }}</div>
+                <div class="text-muted">Minutes per form</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Information Box - Analysis Overview -->
+<div class="info-box mb-4">
+    <h5><i class="fas fa-info-circle me-2"></i>Analysis Overview</h5>
+    <p class="mb-0">This dashboard provides a comprehensive analysis of all submissions to the E-Parliament Requirements Collection System. The data is updated in real-time as users submit new forms.</p>
+</div>
+
+<!-- Chart Sections -->
+<div class="row">
+    <!-- Process Type Analysis -->
+    <!-- <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-tasks text-primary me-2"></i>Current Process Type Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="processTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    -->
+    
+    <!-- Wing Analysis -->
+    <div class="col-md-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-building text-primary me-2"></i>Submission by Wing</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="wingChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Department Analysis -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-sitemap text-primary me-2"></i>Submission by Department</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="departmentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Time Efficiency Analysis -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-hourglass-half text-primary me-2"></i>Time Efficiency Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="timeAnalysisChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Process Step Analysis -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-list-ol text-primary me-2"></i>Process Steps Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="processStepsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Error Possibility Analysis -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle text-primary me-2"></i>Error Possibility Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="errorPossibilityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Top Process Names -->
+    <div class="col-md-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-sort-amount-down text-primary me-2"></i>Top Requested Processes</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="topProcessChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Question Response Analysis -->
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-question-circle text-primary me-2"></i>Question Response Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Question</th>
+                                <th>Response Distribution</th>
+                                <th>Total Responses</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for question in question_analysis %}
+                            <tr>
+                                <td>{{ question.text }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        {% for option in question.options %}
+                                        <div class="progress-bar bg-{{ option.color }}" role="progressbar" 
+                                        style="width: {{ option.percentage|default:0|floatformat:0 }}%;"
+                                            aria-valuenow="{{ option.percentage }}" 
+                                            aria-valuemin="0" 
+                                            aria-valuemax="100" 
+                                            data-bs-toggle="tooltip" 
+                                            data-bs-placement="top" 
+                                            title="{{ option.text }}: {{ option.count }} ({{ option.percentage }}%)">
+                                                {{ option.text }} ({{ option.percentage }}%)
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td>{{ question.total_responses }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-3">
+                                    <div class="alert alert-info mb-0">
+                                        <i class="fas fa-info-circle me-2"></i> No question responses available for analysis yet.
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pass chart data to JavaScript -->
+{{ chart_data|json_script:"chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+         // Parse chart data from the JSON script tag
+        const chartData = JSON.parse(document.getElementById('chart-data').textContent);
+        console.log('Chart data:', chartData);
+        // Enable tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        
+        // Process Type Chart
+        //const processTypeCtx = document.getElementById('processTypeChart').getContext('2d');
+        //new Chart(processTypeCtx, {
+        //    type: 'pie',
+        //   data: {
+        //        labels: chartData.process_labels || ['Fully Manual', 'Partially Digital', 'Fully Digital'],
+        //        datasets: [{
+        //            data: chartData.process_counts || [0, 0, 0],
+        //            backgroundColor: ['#dc3545', '#ffc107', '#28a745'],
+        //            borderWidth: 1
+        //        }]
+        //    },
+        //    options: {
+        //        responsive: true,
+        //        plugins: {
+        //            legend: {
+        //                position: 'right',
+        //            },
+        //            title: {
+        //                display: true,
+        //                text: 'Current Process Types'
+        //            }
+        //        }
+        //    }
+        //});
+        
+        // Wing Chart
+        const wingCtx = document.getElementById('wingChart').getContext('2d');
+        new Chart(wingCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.wing_labels || [],
+                datasets: [{
+                    label: 'Number of Submissions',
+                    data: chartData.wing_data || [],
+                    backgroundColor: '#4285f4',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Submissions by Wing'
+                    }
+                }
+            }
+        });
+        
+        // Department Chart
+        const deptCtx = document.getElementById('departmentChart').getContext('2d');
+        new Chart(deptCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.dept_labels || [],
+                datasets: [{
+                    label: 'Number of Submissions',
+                    data: chartData.dept_data || [],
+                    backgroundColor: '#0f9d58',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Submissions by Department'
+                    }
+                }
+            }
+        });
+        
+        // Time Analysis Chart
+        const timeCtx = document.getElementById('timeAnalysisChart').getContext('2d');
+        new Chart(timeCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Process Time vs Steps',
+                    data: chartData.time_vs_steps || [],
+                    backgroundColor: '#16aee0',
+                    borderColor: '#16aee0',
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Number of Steps'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Time Taken (Days)'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Time Taken vs Process Steps'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Process: ${context.raw.process}, Steps: ${context.raw.x}, Time: ${context.raw.y} days`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Process Steps Chart
+        const stepsCtx = document.getElementById('processStepsChart').getContext('2d');
+        new Chart(stepsCtx, {
+            type: 'bar',
+            data: {
+                datasets: [{
+                    label: 'Number of Processes',
+                    data: chartData.steps_data || [],
+                    backgroundColor: '#f4b400',
+                    borderColor: '#f4b400',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Number of Steps'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Frequency'
+                        },
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Distribution of Process Steps'
+                    }
+                }
+            }
+        });
+        
+        // Error Possibility Chart
+        const errorCtx = document.getElementById('errorPossibilityChart').getContext('2d');
+        new Chart(errorCtx, {
+            type: 'line',
+            data: {
+                labels: chartData.error_labels || ['0-20%', '21-40%', '41-60%', '61-80%', '81-100%'],
+                datasets: [{
+                    label: 'Number of Processes',
+                    data: chartData.error_data || [0, 0, 0, 0, 0],
+                    backgroundColor: 'rgba(220, 53, 69, 0.2)',
+                    borderColor: '#dc3545',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: true,
+                    pointBackgroundColor: '#dc3545'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Error Possibility Distribution'
+                    }
+                }
+            }
+        });
+        
+        // Top Process Chart
+        const processCtx = document.getElementById('topProcessChart').getContext('2d');
+        new Chart(processCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.process_names || [],
+                datasets: [{
+                    label: 'Number of Submissions',
+                    data: chartData.process_counts_data || [],
+                    backgroundColor: [
+                        '#4285f4', '#0f9d58', '#f4b400', '#db4437', 
+                        '#16aee0', '#673ab7', '#ff9800', '#009688'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Top Requested Processes'
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

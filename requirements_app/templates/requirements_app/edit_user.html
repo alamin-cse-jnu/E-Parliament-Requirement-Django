@@ -1,0 +1,156 @@
+{% extends "requirements_app/base.html" %}
+{% load widget_tweaks %}
+
+{% block title %}Edit User - E-Parliament Bangladesh{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-user-edit text-primary me-2"></i>Edit User</h2>
+            <a href="{% url 'user_management' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to User Management
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow-sm border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Edit User Information: {{ user.username }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- Profile Image and Signature Section -->
+                    <div class="row mb-4">
+                        <div class="d-flex flex-column flex-md-row align-items-center justify-content-between w-100 gap-4">
+
+                            <!-- Profile Image -->
+                            <div class="text-center">
+                                {% if user.profile_image %}
+                                    <img src="{{ user.profile_image.url }}" alt="Profile Image" class="img-fluid rounded-circle shadow-sm" style="width: 150px; height: 150px; object-fit: cover; border: 3px solid #0d6efd;">
+                                {% else %}
+                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center shadow-sm mx-auto" style="width: 150px; height: 150px; border: 3px solid #0d6efd;">
+                                        <i class="fas fa-user fa-4x text-secondary"></i>
+                                    </div>
+                                {% endif %}
+                                <label for="id_photo" class="btn btn-sm btn-outline-primary mt-2">
+                                    <i class="fas fa-camera me-1"></i> Change Image
+                                </label>
+                                <div class="d-none">
+                                    {{ form.photo }}
+                                </div>
+                            </div>
+
+                            <!-- Signature -->
+                            <div class="text-center">
+                                <label class="form-label fw-semibold">Signature</label>
+                                {% if user.signature %}
+                                    <div class="mb-2">
+                                        <img src="{{ user.signature.url }}" alt="User Signature" class="img-fluid border shadow-sm" style="max-height: 100px;">
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">No signature uploaded</p>
+                                {% endif %}
+                                <label for="id_signature" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-pen-nib me-1"></i> Change Signature
+                                </label>
+                                <div class="d-none">
+                                    {{ form.signature }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Name, Email, Role -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_first_name" class="form-label">First Name</label>
+                                {% render_field form.first_name class="form-control" %}
+                                <div class="form-text text-danger">{{ form.first_name.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_last_name" class="form-label">Last Name</label>
+                                {% render_field form.last_name class="form-control" %}
+                                <div class="form-text text-danger">{{ form.last_name.errors }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_email" class="form-label">Email</label>
+                        {% render_field form.email class="form-control" %}
+                        <div class="form-text text-danger">{{ form.email.errors }}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_role" class="form-label">Role</label>
+                        {% render_field form.role class="form-control" %}
+                        <div class="form-text text-danger">{{ form.role.errors }}</div>
+                    </div>
+
+                    <!-- Designation and Mobile -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_designation" class="form-label">Designation</label>
+                                {% render_field form.designation class="form-control" %}
+                                <div class="form-text text-danger">{{ form.designation.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="id_mobile" class="form-label">Mobile</label>
+                                {% render_field form.mobile class="form-control" %}
+                                <div class="form-text text-danger">{{ form.mobile.errors }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Wing, Department, Section -->
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="id_wing_name" class="form-label">Wing</label>
+                                {% render_field form.wing_name class="form-control" %}
+                                <div class="form-text text-danger">{{ form.wing_name.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="id_department_name" class="form-label">Branch</label>
+                                {% render_field form.department_name class="form-control" %}
+                                <div class="form-text text-danger">{{ form.department_name.errors }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="id_section_name" class="form-label">Section</label>
+                                {% render_field form.section_name class="form-control" %}
+                                <div class="form-text text-danger">{{ form.section_name.errors }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="mt-4 d-flex justify-content-between">
+                        <a href="{% url 'user_management' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

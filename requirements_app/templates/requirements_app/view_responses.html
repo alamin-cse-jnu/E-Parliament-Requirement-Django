@@ -1,0 +1,93 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}View Responses - E-Parliament Bangladesh{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 text-center">
+        <h2 class="fw-bold text-primary">Submitted Responses</h2>
+    </div>
+</div>
+
+<div class="card border-0 shadow-lg mb-4">
+    <div class="card-header bg-gradient bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-dark">Filter Responses</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="process" class="form-label fw-semibold">Process Name</label>
+                <input type="text" class="form-control" id="process" name="process" value="{{ process_filter|default:'' }}">
+            </div>
+            <div class="col-md-4">
+                <label for="user_id" class="form-label fw-semibold">User ID</label>
+                <input type="text" class="form-control" id="user_id" name="user_id" value="{{ user_filter|default:'' }}">
+            </div>
+            <div class="col-md-4">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-50">Filter</button>
+                    <a href="{% url 'view_responses' %}" class="btn btn-outline-secondary w-50">Reset</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead class="table-light align-middle text-center">
+                    <tr class="align-middle">
+                        <th class="align-middle text-nowrap">User ID</th>
+                        <th class="align-middle text-nowrap">User Name</th>
+                        <th class="align-middle text-nowrap">Process Name</th>
+                        <th class="align-middle text-nowrap">Status</th>
+                        <th class="align-middle text-nowrap">Submitted At</th>
+                        <th class="align-middle text-nowrap">Attachments & Flowchart</th>
+                        <th class="align-middle text-nowrap">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-center">
+                    {% for form in forms %}
+                    <tr>
+                        <td>{{ form.user.username }}</td>
+                        <td>{{ form.user.get_full_name }}</td>
+                        <td>{{ form.process_name }}</td>
+                        <td><span class="badge bg-info text-dark">{{ form.status|title }}</span></td>
+                        <td>{{ form.submitted_at|date:"F d, Y" }}</td>
+                        <td>
+                            <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+                                {% if form.has_attachment %}
+                                    <a href="{{ form.attachment.url }}" target="_blank" class="btn btn-sm btn-outline-info">PDF</a>
+                                    <a href="{% url 'delete_attachment' form.id %}" class="btn btn-sm btn-outline-warning">Delete</a>
+                                {% else %}
+                                    <span class="badge bg-secondary">No Attachment</span>
+                                {% endif %}
+
+                                {% if form.has_flowchart %}
+                                    <a href="{{ form.flowchart.url }}" target="_blank" class="btn btn-sm btn-outline-success">Flowchart</a>
+                                {% else %}
+                                    <span class="badge bg-secondary">No Flowchart</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+                                <a href="{% url 'view_user_form' form.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                <a href="{% url 'edit_submitted_form' form.id %}" class="btn btn-sm btn-outline-success">Edit</a>
+                                <a href="{% url 'delete_form' form.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-muted text-center">No submitted forms found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

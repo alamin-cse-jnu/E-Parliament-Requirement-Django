@@ -1,0 +1,56 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}Delete Question - E-Parliament Bangladesh{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2>Delete Question</h2>
+        <p class="text-muted">Confirm deletion of form question</p>
+    </div>
+</div>
+
+{% if messages %}
+    <div class="row">
+        <div class="col-md-12">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">Delete Question</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <p><strong>Warning:</strong> Deleting this question will also delete all user responses to it. This action cannot be undone.</p>
+                </div>
+                
+                <p>Are you sure you want to delete the question:</p>
+                <p class="font-weight-bold">"{{ question.question_text }}"</p>
+                <p class="text-muted">from section "{{ section.title }}"?</p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="form-group text-center mt-4">
+                        <a href="{% url 'manage_form_structure' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Confirm Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

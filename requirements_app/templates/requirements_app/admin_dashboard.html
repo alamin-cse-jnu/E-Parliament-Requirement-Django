@@ -1,0 +1,198 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}Admin Dashboard - E-Parliament Bangladesh{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2>Admin Dashboard</h2>
+        <p class="text-muted">Overview of system activity and responses</p>
+    </div>
+</div>
+
+<!-- Admin Quick Links Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Admin Quick Links</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{% url 'user_management' %}" class="btn btn-primary btn-block mb-2">User Management</a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'view_responses' %}" class="btn btn-info btn-block mb-2">View Responses</a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'data_analysis' %}" class="btn btn-success btn-block mb-2">Data Analysis</a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'manage_form_structure' %}" class="btn btn-warning btn-block mb-2">Manage Form Structure</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">Total Users</h5>
+                <p class="card-text display-4">{{ total_users }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">Total Admins</h5>
+                <p class="card-text display-4">{{ total_admins }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">Submitted Forms</h5>
+                <p class="card-text display-4">{{ submitted_forms }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">Draft Forms</h5>
+                <p class="card-text display-4">{{ draft_forms }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form Structure Stats -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">Total Sections</h5>
+                <p class="card-text display-4">{{ total_sections }}</p>
+                <p class="text-muted">Active: {{ active_sections }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center">
+                <h5 class="card-title">Total Questions</h5>
+                <p class="card-text display-4">{{ total_questions }}</p>
+                <p class="text-muted">Active: {{ active_questions }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Response Rate</h5>
+                <canvas id="responseRateChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Forms by Wing</h5>
+                <canvas id="formsByWingChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Forms by Department</h5>
+                <canvas id="formsByDepartmentChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pass chart data to JavaScript -->
+{{ chart_data|json_script:"chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Access chart data from the JSON script tag
+    const chartData = JSON.parse(document.getElementById('chart-data').textContent);
+
+    // Response Rate Chart
+    const responseRateCtx = document.getElementById('responseRateChart').getContext('2d');
+    new Chart(responseRateCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Submitted', 'Not Submitted'],
+            datasets: [{
+                data: [{{ submitted_forms|default:0 }}, {{ total_users|add:'-submitted_forms'|default:0 }}],
+                backgroundColor: ['#28a745', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Response Rate: {{ response_rate|floatformat:2 }}%' }
+            }
+        }
+    });
+
+    // Forms by Wing Chart
+    const formsByWingCtx = document.getElementById('formsByWingChart').getContext('2d');
+    new Chart(formsByWingCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.wing_labels || [],
+            datasets: [{
+                label: 'Number of Forms',
+                data: chartData.wing_data || [],
+                backgroundColor: '#28a745'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // Forms by Department Chart
+    const formsByDepartmentCtx = document.getElementById('formsByDepartmentChart').getContext('2d');
+    new Chart(formsByDepartmentCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.dept_labels || [],
+            datasets: [{
+                label: 'Number of Forms',
+                data: chartData.dept_data || [],
+                backgroundColor: '#28a745'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+</script>
+{% endblock %}

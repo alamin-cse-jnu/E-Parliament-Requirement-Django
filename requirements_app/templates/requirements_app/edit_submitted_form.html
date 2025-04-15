@@ -1,0 +1,371 @@
+
+{% extends "requirements_app/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Edit Submitted Form - E-Parliament Bangladesh{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        margin-bottom: 2rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 1.5rem;
+        background-color: #f9f9f9;
+    }
+    .form-section-title {
+        background-color: #28a745;
+        color: white;
+        padding: 10px 15px;
+        margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+        border-radius: 5px 5px 0 0;
+    }
+    .table-params th {
+        background-color: #f2f2f2;
+        font-weight: 600;
+    }
+    .connectivity-details {
+        margin-top: 10px;
+        display: none;
+    }
+    .form-label {
+        font-weight: 500;
+    }
+    .required-field:after {
+        content: "*";
+        color: red;
+    }
+    .admin-edit-notice {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 1rem;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Edit Submitted Form</h2>
+            <div>
+                <a href="{% url 'view_responses' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Responses</a>
+            </div>
+        </div>
+        <p class="text-muted">Edit the submitted form for {{ form_instance.user.get_full_name }}</p>
+    </div>
+</div>
+
+<div class="admin-edit-notice">
+    <h5><i class="fas fa-exclamation-triangle me-2"></i>Admin Edit Mode</h5>
+    <p class="mb-0">You are editing a form submitted by <strong>{{ form_instance.user.get_full_name }}</strong>. Any changes will be recorded in the system with your admin credentials.</p>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        <form method="post" id="requirements-form" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <!-- User Information -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-user me-2"></i>User Information</h4>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Name:</strong></label>
+                            <p>{{ form_instance.user.get_full_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Designation:</strong></label>
+                            <p>{{ form_instance.user.designation }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Wing Name:</strong></label>
+                            <p>{{ form_instance.user.wing_name }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Department Name:</strong></label>
+                            <p>{{ form_instance.user.department_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Section Name:</strong></label>
+                            <p>{{ form_instance.user.section_name }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Contact:</strong></label>
+                            <p>{{ form_instance.user.email }} / {{ form_instance.user.mobile }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section A: Process Information -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-info-circle me-2"></i>Section A: Process Information</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Service/Process Name:</label>
+                        {{ basic_form.process_name }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Service/Process Overview:</label>
+                        {{ basic_form.process_description }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label><strong>Process Steps:</strong></label>
+                        <ol class="list-group list-group-numbered">
+                            {% for step in form.process_steps_detail %}
+                                {% if step.description %}
+                                    <li class="list-group-item">{{ step.description }}</li>
+                                {% elif step|stringformat:"s" != "null" and step|length > 0 %}
+                                    <li class="list-group-item">{{ step }}</li>
+                                {% endif %}
+                            {% empty %}
+                                <li class="list-group-item text-muted">No process steps defined</li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Process Flowchart (PDF):</label>
+                        {% if form_instance.flowchart %}
+                            <p>Current file: <a href="{{ form_instance.flowchart.url }}" target="_blank">{{ form_instance.flowchart.name }}</a></p>
+                            <input type="file" name="flowchart" class="form-control" accept=".pdf">
+                            <small class="form-text text-muted">Upload a new file only if you want to replace the current one.</small>
+                        {% else %}
+                            <input type="file" name="flowchart" class="form-control" accept=".pdf" required>
+                            <small class="form-text text-muted">Please attach a PDF flowchart of the process. This is required.</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section B: Process Efficiency Analysis -->
+            <div class="form-section">
+                <h4 class="form-section-title required-field"><i class="fas fa-chart-line me-2"></i>Section B: Process Efficiency Analysis</h4>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-params">
+                        <thead>
+                            <tr>
+                                <th width="5%">Sl.</th>
+                                <th width="40%">Parameter</th>
+                                <th width="55%">Current Method</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-center">1</td>
+                                <td>Time Taken per Task</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.time_taken }}
+                                        <span class="input-group-text">Days</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">2</td>
+                                <td>Number of People Involved</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.people_involved }}
+                                        <span class="input-group-text">People</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">3</td>
+                                <td>Process Steps</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.process_steps }}
+                                        <span class="input-group-text">Steps</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">4</td>
+                                <td>Error Possibility</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.error_possibility }}
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center">5</td>
+                                <td>Ease of Access (find out certain file or report from the past)</td>
+                                <td>
+                                    <div class="input-group">
+                                        {{ basic_form.ease_of_access }}
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Section C: Expectations from New Software -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-laptop-code me-2"></i>Section C: Expectations from New Software</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">List of Features you expect (based on your process Description):</label>
+                        {{ basic_form.expected_features }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Do you need connectivity of this system with other offices (inside parliament):</label>
+                        {{ basic_form.internal_connectivity }}
+                    </div>
+                </div>
+                <div class="row mb-3 internal-connectivity-details connectivity-details">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Which Offices are need to be connected and what are the tasks:</label>
+                        {{ basic_form.internal_connectivity_details }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Do you need connectivity of this system with other Ministries/Agencies (outside parliament):</label>
+                        {{ basic_form.external_connectivity }}
+                    </div>
+                </div>
+                <div class="row mb-3 external-connectivity-details connectivity-details">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Which Offices are need to be connected and what are the tasks:</label>
+                        {{ basic_form.external_connectivity_details }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Section D: Report and Data Analysis -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-file-alt me-2"></i>Section D: Report and Data Analysis</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">Expected reports from the new system:</label>
+                        {{ basic_form.expected_reports }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label required-field">What kind of Analysis you Expected:</label>
+                        {{ basic_form.expected_analysis }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dynamic Form Sections -->
+            {% for section_data in sections_with_questions %}
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-tasks me-2"></i>{{ section_data.section.title }}</h4>
+                {% if section_data.section.description %}
+                <p class="text-muted mb-4">{{ section_data.section.description }}</p>
+                {% endif %}
+                
+                {% for question_item in section_data.questions %}
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label {% if question_item.question.is_required %}required-field{% endif %}">
+                            {{ question_item.question.question_text }}
+                        </label>
+                        {% if question_item.question.help_text %}
+                        <small class="form-text text-muted">{{ question_item.question.help_text }}</small>
+                        {% endif %}
+                        {{ question_item.field }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            
+            <!-- Section F: Upload Attachment -->
+            <div class="form-section">
+                <h4 class="form-section-title"><i class="fas fa-paperclip me-2"></i>Section F: Upload Attachment</h4>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">PDF Attachment:</label>
+                        {% if form_instance.attachment %}
+                            <p>Current file: <a href="{{ form_instance.attachment.url }}" target="_blank">{{ form_instance.attachment.name }}</a></p>
+                            <input type="file" name="attachment" class="form-control" accept=".pdf">
+                            <small class="form-text text-muted">Upload a new file only if you want to replace the current one.</small>
+                        {% else %}
+                            <input type="file" name="attachment" class="form-control" accept=".pdf">
+                            <small class="form-text text-muted">Please attach a PDF file (if required).</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'view_responses' %}" class="btn btn-lg btn-secondary">
+                    <i class="fas fa-times me-2"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-lg btn-success">
+                    <i class="fas fa-save me-2"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle internal connectivity details based on selection
+        const internalConnectivity = document.querySelector('[name="internal_connectivity"]');
+        const internalConnectivityDetails = document.querySelector('.internal-connectivity-details');
+        
+        function toggleInternalConnectivityDetails() {
+            if (internalConnectivity.value === 'yes') {
+                internalConnectivityDetails.style.display = 'block';
+            } else {
+                internalConnectivityDetails.style.display = 'none';
+            }
+        }
+        
+        internalConnectivity.addEventListener('change', toggleInternalConnectivityDetails);
+        toggleInternalConnectivityDetails(); // Initialize on page load
+        
+        // Toggle external connectivity details based on selection
+        const externalConnectivity = document.querySelector('[name="external_connectivity"]');
+        const externalConnectivityDetails = document.querySelector('.external-connectivity-details');
+        
+        function toggleExternalConnectivityDetails() {
+            if (externalConnectivity.value === 'yes') {
+                externalConnectivityDetails.style.display = 'block';
+            } else {
+                externalConnectivityDetails.style.display = 'none';
+            }
+        }
+        
+        externalConnectivity.addEventListener('change', toggleExternalConnectivityDetails);
+        toggleExternalConnectivityDetails(); // Initialize on page load
+    });
+</script>
+{% endblock %}

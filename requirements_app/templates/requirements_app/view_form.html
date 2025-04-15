@@ -1,0 +1,291 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}View Requirements Form - E-Parliament Bangladesh{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        margin-bottom: 2rem;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 1.5rem;
+        background-color: #f9f9f9;
+    }
+    .form-section-title {
+        background-color: #28a745;
+        color: white;
+        padding: 10px 15px;
+        margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+        border-radius: 5px 5px 0 0;
+    }
+    .table-params th {
+        background-color: #f2f2f2;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>View E-Parliament Requirements Form</h2>
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+                <a href="{% url 'download_pdf' form.id %}" class="btn btn-primary"><i class="fas fa-download"></i> Download PDF</a>
+            </div>
+        </div>
+        <p class="text-muted">Below is the submitted requirements form for your review.</p>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        <!-- User Information -->
+        <div class="form-section">
+            <h4 class="form-section-title"><i class="fas fa-user me-2"></i>User Information</h4>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Name:</strong></label>
+                        <p>{{ user.get_full_name }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Designation:</strong></label>
+                        <p>{{ user.designation }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Wing Name:</strong></label>
+                        <p>{{ user.wing_name }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Department Name:</strong></label>
+                        <p>{{ user.department_name }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Section Name:</strong></label>
+                        <p>{{ user.section_name }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label><strong>Contact:</strong></label>
+                        <p>{{ user.email }} / {{ user.mobile }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Process Information -->
+        <div class="form-section">
+            <h4 class="form-section-title"><i class="fas fa-info-circle me-2"></i>Section A: Process Information</h4>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Process Name:</strong></label>
+                    <p>{{ form.process_name }}</p>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Process Description:</strong></label>
+                    <p>{{ form.process_description|linebreaks }}</p>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Process Steps:</strong></label>
+                    <ol class="list-group list-group-numbered">
+                        {% for step in form.process_steps_detail %}
+                            {% if step.description %}
+                                <li class="list-group-item">{{ step.description }}</li>
+                            {% elif step|stringformat:"s" != "null" and step|length > 0 %}
+                                <li class="list-group-item">{{ step }}</li>
+                            {% endif %}
+                        {% empty %}
+                            <li class="list-group-item text-muted">No process steps defined</li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            </div>
+            {% if form.flowchart %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Flowchart:</strong></label>
+                    <p><a href="{{ form.flowchart.url }}" target="_blank" class="btn btn-sm btn-info"><i class="fas fa-eye me-1"></i> View Flowchart</a></p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Process Efficiency Analysis -->
+        <div class="form-section">
+            <h4 class="form-section-title"><i class="fas fa-chart-line me-2"></i>Section B: Process Efficiency Analysis</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered table-params">
+                    <thead>
+                        <tr>
+                            <th width="5%">Sl.</th>
+                            <th width="40%">Parameter</th>
+                            <th width="55%">Current Method</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-center">1</td>
+                            <td>Time Taken per Task</td>
+                            <td>{{ form.time_taken }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-center">2</td>
+                            <td>Number of People Involved</td>
+                            <td>{{ form.people_involved }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-center">3</td>
+                            <td>Process Steps</td>
+                            <td>{{ form.process_steps }}</td>
+                        </tr>
+                        <!-- <tr>
+                            <td class="text-center">4</td>
+                            <td>Error Possibility</td>
+                            <td>{{ form.error_possibility }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-center">5</td>
+                            <td>Ease of Access (find out certain file or report from the past)</td>
+                            <td>{{ form.ease_of_access }}</td>
+                        </tr> -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Expectations from New Software -->
+        <div class="form-section">
+            <h4 class="form-section-title"><i class="fas fa-laptop-code me-2"></i>Section C: Expectations from New Software</h4>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Expected Features:</strong></label>
+                    <p>{{ form.expected_features|linebreaks }}</p>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Internal Connectivity Required:</strong></label>
+                    <p>{{ form.get_internal_connectivity_display }}</p>
+                </div>
+            </div>
+            {% if form.internal_connectivity == 'yes' %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Internal Connectivity Details:</strong></label>
+                    <p>{{ form.internal_connectivity_details|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>External Connectivity Required:</strong></label>
+                    <p>{{ form.get_external_connectivity_display }}</p>
+                </div>
+            </div>
+            {% if form.external_connectivity == 'yes' %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>External Connectivity Details:</strong></label>
+                    <p>{{ form.external_connectivity_details|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Report and Data Analysis -->
+        <div class="form-section">
+            <h4 class="form-section-title"><i class="fas fa-file-alt me-2"></i>Section D: Report and Data Analysis</h4>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Expected Reports:</strong></label>
+                    <p>{{ form.expected_reports|linebreaks }}</p>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>Expected Analysis:</strong></label>
+                    <p>{{ form.expected_analysis|linebreaks }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Sections -->
+        {% for section_data in sections_with_answers %}
+        <div class="form-section">
+            <h4 class="form-section-title"><i class="fas fa-tasks me-2"></i>{{ section_data.section.title }}</h4>
+            {% if section_data.section.description %}
+            <p class="text-muted mb-4">{{ section_data.section.description }}</p>
+            {% endif %}
+            
+            {% for answer in section_data.answers %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label><strong>{{ answer.question.question_text }}</strong></label>
+                    <p>{{ answer.answer_text|linebreaks }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        {% if form.attachment %}
+        <div class="form-section">
+            <h4 class="form-section-title"><i class="fas fa-paperclip me-2"></i>Attachment</h4>
+            <div class="row">
+                <div class="col-md-12">
+                    <p><strong>Attached PDF:</strong> <a href="{{ form.attachment.url }}" target="_blank" class="btn btn-sm btn-info"><i class="fas fa-eye me-1"></i> View PDF</a></p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Submission Details -->
+        <div class="form-section">
+            <h4 class="form-section-title"><i class="fas fa-check-circle me-2"></i>Submission Details</h4>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label><strong>Status:</strong></label>
+                    <p>{{ form.get_status_display }}</p>
+                </div>
+                <div class="col-md-6">
+                    <label><strong>Last Updated:</strong></label>
+                    <p>{{ form.updated_at }}</p>
+                </div>
+            </div>
+            {% if form.status == 'submitted' %}
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label><strong>Submitted At:</strong></label>
+                    <p>{{ form.submitted_at }}</p>
+                </div>
+                <div class="col-md-6">
+                    <label><strong>Digital Signature:</strong></label>
+                    {% if user.signature %}
+                    <p><img src="{{ user.signature.url }}" alt="Signature" width="150"></p>
+                    {% else %}
+                    <p>No signature available.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

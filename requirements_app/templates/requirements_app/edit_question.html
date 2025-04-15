@@ -1,0 +1,156 @@
+{% extends "requirements_app/base.html" %}
+
+{% block title %}{{ title }} - E-Parliament Bangladesh{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <h2>{{ title }}</h2>
+        <p class="text-muted">Section: {{ section.title }}</p>
+    </div>
+</div>
+
+{% if messages %}
+    <div class="row">
+        <div class="col-md-12">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label for="{{ form.question_text.id_for_label }}">Question Text *</label>
+                        {{ form.question_text }}
+                        {% if form.question_text.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.question_text.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.field_type.id_for_label }}">Field Type *</label>
+                        {{ form.field_type }}
+                        {% if form.field_type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.field_type.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group" id="options-group">
+                        <label for="{{ form.options.id_for_label }}">Options</label>
+                        {{ form.options }}
+                        <small class="form-text text-muted">For radio buttons, checkboxes, and dropdowns. Enter one option per line.</small>
+                        {% if form.options.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.options.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.help_text.id_for_label }}">Help Text</label>
+                        {{ form.help_text }}
+                        <small class="form-text text-muted">Additional instructions to help users answer the question</small>
+                        {% if form.help_text.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.help_text.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="{{ form.order.id_for_label }}">Order</label>
+                                {{ form.order }}
+                                <small class="form-text text-muted">Lower numbers appear first</small>
+                                {% if form.order.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.order.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <div class="custom-control custom-switch mt-4">
+                                    {{ form.is_required }}
+                                    <label class="custom-control-label" for="{{ form.is_required.id_for_label }}">Required</label>
+                                </div>
+                                <small class="form-text text-muted">If checked, users must provide an answer</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <div class="custom-control custom-switch mt-4">
+                                    {{ form.is_active }}
+                                    <label class="custom-control-label" for="{{ form.is_active.id_for_label }}">Active</label>
+                                </div>
+                                <small class="form-text text-muted">If unchecked, this question will not appear in the form</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group text-center mt-4">
+                        <a href="{% url 'manage_form_structure' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if is_edit %}Update{% else %}Create{% endif %} Question
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Add Bootstrap classes to form fields
+        $('#{{ form.question_text.id_for_label }}').addClass('form-control');
+        $('#{{ form.field_type.id_for_label }}').addClass('form-control');
+        $('#{{ form.options.id_for_label }}').addClass('form-control');
+        $('#{{ form.help_text.id_for_label }}').addClass('form-control');
+        $('#{{ form.order.id_for_label }}').addClass('form-control');
+        $('#{{ form.is_required.id_for_label }}').addClass('custom-control-input');
+        $('#{{ form.is_active.id_for_label }}').addClass('custom-control-input');
+        
+        // Show/hide options field based on field type
+        function toggleOptionsField() {
+            var fieldType = $('#{{ form.field_type.id_for_label }}').val();
+            if (['radio', 'checkbox', 'select'].includes(fieldType)) {
+                $('#options-group').show();
+            } else {
+                $('#options-group').hide();
+            }
+        }
+        
+        // Run on page load
+        toggleOptionsField();
+        
+        // Run when field type changes
+        $('#{{ form.field_type.id_for_label }}').change(function() {
+            toggleOptionsField();
+        });
+    });
+</script>
+{% endblock %}
