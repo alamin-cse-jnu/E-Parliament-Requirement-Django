@@ -54,35 +54,6 @@
             font-style: italic;
             margin-top: 30px;
         }
-        .user-count {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #555;
-        }
-        .user-stats {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin-bottom: 30px;
-        }
-        .stat-box {
-            text-align: center;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            min-width: 150px;
-        }
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #28a745;
-            margin: 10px 0;
-        }
-        .stat-label {
-            font-size: 14px;
-            color: #555;
-        }
     </style>
 </head>
 <body>
@@ -93,30 +64,14 @@
             <div class="no-logo">Parliament Logo</div>
         {% endif %}
         <h1>E-Parliament Bangladesh</h1>
-        <h3>User Management Report</h3>
-    </div>
-    
-    <div class="user-stats">
-        <div class="stat-box">
-            <div class="stat-label">Total Users</div>
-            <div class="stat-number">{{ users|length }}</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Administrators</div>
-            <div class="stat-number">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Standard Users</div>
-            <div class="stat-number">{{ users|selectattr('role', 'equalto', 'user')|list|length }}</div>
-        </div>
+        <h3>User List</h3>
     </div>
     
     <table>
         <thead>
             <tr>
-                <th>#</th>
                 <th>Username</th>
-                <th>Full Name</th>
+                <th>Name</th>
                 <th>Role</th>
                 <th>Designation</th>
                 <th>Wing</th>
@@ -128,7 +83,6 @@
         <tbody>
             {% for user in users %}
             <tr>
-                <td>{{ forloop.counter }}</td>
                 <td>{{ user.username }}</td>
                 <td>{{ user.get_full_name }}</td>
                 <td>{{ user.get_role_display }}</td>
@@ -140,7 +94,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="9" style="text-align: center;">No users found.</td>
+                <td colspan="8" style="text-align: center;">No users found.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -148,8 +102,7 @@
     
     <div class="footer">
         <p>Generated on {{ current_date|date:"F d, Y" }}</p>
-        <p>System Generated &copy; Software Development Section - B&IT Wing</p>
-        <p>E-Parliament Bangladesh Project</p>
+        <p>System Generated &copy; Software Development Section- B&IT Wing </p>
     </div>
 </body>
 </html>

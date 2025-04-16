@@ -273,6 +273,11 @@
                     <i class="fas fa-edit me-2"></i> Edit Form
                 </button>
             </form>
+            
+            <a href="{% url 'download_review_pdf' %}" class="btn btn-lg btn-info">
+                <i class="fas fa-download me-2"></i> Download PDF
+            </a>
+            
             <form method="post" action="{% url 'confirm_submission' %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-lg btn-success">

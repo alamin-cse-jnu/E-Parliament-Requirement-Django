@@ -42,6 +42,47 @@
         content: "*";
         color: red;
     }
+    @media print {
+    /* Hide elements that shouldn't be printed */
+    .navbar, .footer, button, .btn-save-draft, .btn-primary {
+        display: none !important;
+    }
+    
+    /* Format the page for better print layout */
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .form-section {
+        page-break-inside: avoid;
+        margin-bottom: 20px;
+    }
+    
+    .form-section-title {
+        background-color: #f2f2f2 !important;
+        color: #000 !important;
+        border: 1px solid #ddd;
+    }
+    
+    /* Ensure the form takes the full page width */
+    .container {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+    
+    /* Add page break where appropriate */
+    h4 {
+        page-break-after: avoid;
+    }
+    
+    /* Ensure text is readable */
+    body {
+        font-size: 12pt;
+        color: #000 !important;
+    }
+}
 </style>
 {% endblock %}
 
@@ -334,6 +375,11 @@
                 <button type="submit" name="save_draft" class="btn btn-lg btn-save-draft">
                     <i class="fas fa-save me-2"></i> Save Draft
                 </button>
+                {% if is_draft %}
+                <button type="button" id="print-form-btn" class="btn btn-lg btn-info">
+                    <i class="fas fa-print me-2"></i> Print Draft
+                </button>
+                {% endif %}
                 <button type="submit" name="review" class="btn btn-lg btn-primary">
                     <i class="fas fa-eye me-2"></i> Review Form
                 </button>
@@ -345,6 +391,69 @@
 
 {% block extra_js %}
 <script>
+    // Print functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const printButton = document.getElementById('print-form-btn');
+        if (printButton) {
+            printButton.addEventListener('click', function() {
+                // Save the form temporarily before printing
+                const formData = new FormData(document.getElementById('requirements-form'));
+                formData.append('save_draft', 'true');
+                
+                // Use fetch API to save silently
+                fetch('{% if form_id %}{% url "form_view" form_id %}{% else %}{% url "form" %}{% endif %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Now trigger print
+                        window.print();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving form before print:', error);
+                    // Print anyway
+                    window.print();
+                });
+            });
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+    // Get the Save Draft button
+    const saveDraftBtn = document.querySelector('button[name="save_draft"]');
+    
+    if (saveDraftBtn) {
+        saveDraftBtn.addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent normal form submission
+            
+            // Get the form
+            const form = document.getElementById('requirements-form');
+            
+            // Remove required attribute temporarily from all form elements
+            const requiredElements = form.querySelectorAll('[required]');
+            requiredElements.forEach(element => {
+                element.removeAttribute('required');
+            });
+            
+            // Create hidden input to indicate draft save
+            const draftInput = document.createElement('input');
+            draftInput.type = 'hidden';
+            draftInput.name = 'save_draft';
+            draftInput.value = 'true';
+            form.appendChild(draftInput);
+            
+            // Submit the form
+            form.submit();
+        });
+    }
+});
     document.addEventListener('DOMContentLoaded', function() {
         // Toggle internal connectivity details based on selection
         const internalConnectivity = document.querySelector('[name="internal_connectivity"]');
@@ -452,25 +561,37 @@ addStepBtn.addEventListener('click', function() {
     updateHiddenField();
 });
 
-// Add default 10 steps on page load
+// Add default steps on page load
 function initializeSteps() {
     // Make sure the process_steps_detail value is properly formatted
     let existingSteps = [];
     
     try {
-        // This should get the raw JSON string and parse it
-        const stepsJson = document.getElementById('process-steps-detail').value;
-        if (stepsJson && stepsJson !== '[]') {
-            existingSteps = JSON.parse(stepsJson);
-        }
+        // Check if we have process steps from an existing draft
+        {% if is_draft and instance_process_steps_detail %}
+            existingSteps = JSON.parse('{{ instance_process_steps_detail|escapejs }}');
+        {% elif form_data and form_data.process_steps_detail %}
+            // Handle process steps from session data
+            existingSteps = {{ form_data.process_steps_detail|safe }};
+        {% else %}
+            // This should get the raw JSON string and parse it
+            const stepsJson = document.getElementById('process-steps-detail').value;
+            if (stepsJson && stepsJson !== '[]') {
+                existingSteps = JSON.parse(stepsJson);
+            }
+        {% endif %}
     } catch (e) {
         console.error('Error parsing existing steps:', e);
+        console.log('Raw data:', '{{ instance_process_steps_detail|escapejs }}');
     }
     
-    if (existingSteps.length > 0) {
+    // Clear any existing steps first
+    processStepsContainer.innerHTML = '';
+    
+    if (existingSteps && existingSteps.length > 0) {
         // Add existing steps
         existingSteps.forEach(step => {
-            processStepsContainer.appendChild(createStepInput(step.number, step.description));
+            processStepsContainer.appendChild(createStepInput(step.number || step.number === 0 ? step.number : existingSteps.indexOf(step) + 1, step.description));
         });
     } else {
         // Add default empty steps
@@ -490,32 +611,67 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
     // Auto-save draft every 2 minutes
-    let autoSaveInterval = 2 * 60 * 1000; // 2 minutes in milliseconds
+let autoSaveInterval = 2 * 60 * 1000; // 2 minutes in milliseconds
+let lastAutoSaveTime = Date.now();
+
+function autoSaveDraft() {
+    // Only auto-save if there have been changes since last save
+    const form = document.getElementById('requirements-form');
+    const processNameField = form.querySelector('[name="process_name"]');
     
-    function autoSaveDraft() {
-        let formData = new FormData(document.getElementById('requirements-form'));
-        formData.append('save_draft', 'true');
-        
-        fetch('{% if form_id %}{% url "form_view" form_id %}{% else %}{% url "form" %}{% endif %}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Form auto-saved at ' + new Date().toLocaleTimeString());
-            }
-        })
-        .catch(error => {
-            console.error('Error auto-saving form:', error);
-        });
+    // Don't save if no process name (key identifier) is entered yet
+    if (!processNameField || !processNameField.value.trim()) {
+        console.log('Auto-save skipped: No process name entered yet');
+        return;
     }
+    
+    let formData = new FormData(form);
+    formData.append('save_draft', 'true');
+    formData.append('auto_save', 'true'); // Flag to indicate this is an auto-save request
+    
+    fetch('{% if form_id %}{% url "form_view" form_id %}{% else %}{% url "form" %}{% endif %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Form auto-saved at ' + new Date().toLocaleTimeString());
+            lastAutoSaveTime = Date.now();
+            
+            // Update form_id if provided (for new drafts)
+            if (data.form_id) {
+                // Update the URL without refreshing if this is a new draft
+                const currentUrl = window.location.pathname;
+                if (currentUrl.endsWith('/form/')) {
+                    const newUrl = `/form/${data.form_id}/`;
+                    history.pushState({}, '', newUrl);
+                }
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error auto-saving form:', error);
+    });
+}
+
+// Only set up auto-save for active form editing
+if (document.getElementById('requirements-form')) {
+    // Set up auto-save timer
+    const autoSaveTimer = setInterval(autoSaveDraft, autoSaveInterval);
+    
+    // Clear auto-save when leaving the page
+    window.addEventListener('beforeunload', function() {
+        clearInterval(autoSaveTimer);
+    });
+}
     
     // Set up auto-save timer
     setInterval(autoSaveDraft, autoSaveInterval);
+    
 </script>
 {% endblock %}

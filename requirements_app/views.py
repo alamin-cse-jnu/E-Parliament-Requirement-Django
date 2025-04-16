@@ -24,6 +24,7 @@ from django.db.models.fields.files import FieldFile
 from django.template.loader import render_to_string
 from datetime import datetime
 from weasyprint import HTML, CSS
+from django.core.paginator import Paginator
 
 
 def is_admin(user):
@@ -33,6 +34,9 @@ def is_admin(user):
 def dashboard(request):
     if request.user.role == 'admin':
         return redirect('admin_dashboard')
+    
+    # Clean up duplicate drafts if they exist
+    cleanup_duplicate_drafts(request.user)
     
     # Get count of forms
     user_forms_count = RequirementForm.objects.filter(user=request.user).count()
@@ -48,125 +52,196 @@ def dashboard(request):
     }
     return render(request, 'requirements_app/dashboard.html', context)
 
+def cleanup_duplicate_drafts(user):
+    """Find and merge duplicate drafts for a user"""
+    # Find drafts with duplicate process names
+    drafts = RequirementForm.objects.filter(user=user, status='draft')
+    
+    # Get process names with duplicates
+    duplicate_process_names = drafts.values('process_name').annotate(
+        count=Count('id')
+    ).filter(count__gt=1).values_list('process_name', flat=True)
+    
+    for process_name in duplicate_process_names:
+        # Get all drafts for this process name
+        process_drafts = drafts.filter(process_name=process_name).order_by('-updated_at')
+        
+        if process_drafts.count() > 1:
+            # Keep the most recently updated one
+            most_recent = process_drafts.first()
+            
+            # Delete the rest
+            for old_draft in process_drafts[1:]:
+                old_draft.delete()
+
 @login_required
 def form_view(request, form_id=None):
+    # Check if coming from review page with edit request
+    edit_after_review = request.session.pop('edit_after_review', False)
+    form_data_from_session = None
+    
+    if edit_after_review and 'form_data' in request.session:
+        form_data_from_session = request.session['form_data']
+        question_responses = request.session.get('question_responses', {})
+
     # If form_id is provided, get the specific form to edit (draft)
     if form_id:
         instance = get_object_or_404(RequirementForm, id=form_id, user=request.user, status='draft')
+        # Convert the JSONField to a JSON string for the template
+        instance_process_steps_detail = json.dumps(instance.process_steps_detail)
     else:
         instance = None
-        
-    # Check if process_name already exists when submitting
-    process_name_error = None
-    if request.method == 'POST' and ('submit' in request.POST or 'review' in request.POST):
-        process_name = request.POST.get('process_name')
-        query = RequirementForm.objects.filter(user=request.user, process_name=process_name, status='submitted')
-        
-        # If we're editing an existing form, exclude it from the check
-        if instance:
-            query = query.exclude(pk=instance.pk)
-            
-        if query.exists():
-            process_name_error = f"You have already submitted a form for '{process_name}'. Please use a different process name."
+        instance_process_steps_detail = '[]'
     
+    # Override instance_process_steps_detail if we have data from session
+    if form_data_from_session and 'process_steps_detail' in form_data_from_session:
+        # No need to convert to JSON string here since we'll do that in the template
+        instance_process_steps_detail = json.dumps(form_data_from_session['process_steps_detail'])
+        
     # Get all active form sections with their questions
     active_sections = FormSection.objects.filter(is_active=True).prefetch_related('questions').order_by('order')
 
     if request.method == 'POST':
-        # If there's a process name error, don't proceed with form submission
-        if process_name_error:
-            messages.error(request, process_name_error)
-            basic_form = RequirementFormForm(request.POST, request.FILES, instance=instance)
-            dynamic_form = DynamicForm(request.POST, sections=active_sections, instance=instance)
-        else:
-            # Process the basic form data
-            basic_form = RequirementFormForm(request.POST, request.FILES, instance=instance)
-            # Process the dynamic questions
-            dynamic_form = DynamicForm(request.POST, sections=active_sections, instance=instance)
+        # Determine if this is a draft save
+        is_draft_save = 'save_draft' in request.POST
+        is_auto_save = 'auto_save' in request.POST
+        # For draft saves, bypass form validation completely
+        if is_draft_save:
+            # For auto-save, try to find an existing draft with the same process name
+            process_name = request.POST.get('process_name', '').strip()
+            if is_auto_save and process_name:
+                existing_drafts = RequirementForm.objects.filter(
+                    user=request.user,
+                    status='draft',
+                    process_name=process_name
+                )
 
-            if basic_form.is_valid() and dynamic_form.is_valid():
-                # Save the basic form but don't commit to DB yet
+                # If not the current instance and we found other drafts with same name,
+                # use the most recently updated one
+                if not instance and existing_drafts.exists():
+                    instance = existing_drafts.order_by('-updated_at').first()
+                    form_id = instance.id
+
+            # Determine if we're updating an existing draft or creating a new one
+            if instance:
+                requirement_form = instance
+            else:
+                requirement_form = RequirementForm(user=request.user)
+            
+            # Set the status to draft
+            requirement_form.status = 'draft'
+            
+            # Directly update fields from POST data
+            # For text fields
+            for field_name in ['process_name', 'process_description', 'expected_features', 
+                            'internal_connectivity_details', 'external_connectivity_details',
+                            'expected_reports', 'expected_analysis']:
+                if field_name in request.POST:
+                    setattr(requirement_form, field_name, request.POST.get(field_name, ''))
+            
+            # For integer fields
+            for field_name in ['time_taken', 'people_involved', 'process_steps']:
+                try:
+                    value = request.POST.get(field_name, '')
+                    if value and value.strip():
+                        setattr(requirement_form, field_name, int(value))
+                    else:
+                        # Set default value of 0 to avoid NULL errors
+                        setattr(requirement_form, field_name, 0)
+                except (ValueError, TypeError):
+                    # Set default value
+                    setattr(requirement_form, field_name, 0)
+                    pass
+            
+            # For choice fields
+            for field_name in ['internal_connectivity', 'external_connectivity']:
+                if field_name in request.POST:
+                    setattr(requirement_form, field_name, request.POST.get(field_name, 'no'))
+            
+            # Process steps detail
+            process_steps_detail = request.POST.get('process_steps_detail', '[]')
+            try:
+                requirement_form.process_steps_detail = json.loads(process_steps_detail)
+            except json.JSONDecodeError:
+                requirement_form.process_steps_detail = []
+            
+            # File uploads - only handle for non-auto-save to avoid partial uploads
+            if not is_auto_save:
+                if 'flowchart' in request.FILES:
+                    requirement_form.flowchart = request.FILES['flowchart']
+                
+                if 'attachment' in request.FILES:
+                    requirement_form.attachment = request.FILES['attachment']
+            
+            # Save the form (no validation)
+            requirement_form.save()
+            
+            # Save question responses
+            for field_name, value in request.POST.items():
+                if field_name.startswith('question_'):
+                    try:
+                        question_id = int(field_name.split('_')[1])
+                        question = FormQuestion.objects.get(id=question_id)
+                        QuestionResponse.objects.update_or_create(
+                            form=requirement_form,
+                            question=question,
+                            defaults={'response_text': value if value is not None else ''}
+                        )
+                    except (ValueError, FormQuestion.DoesNotExist):
+                        pass
+            
+            # Check if it's an AJAX request
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'form_id':requirement_form.id})
+                
+            messages.success(request, "Form saved as draft successfully.")
+            return redirect('dashboard')
+        
+        else:
+            # Regular form processing with validation for non-draft
+            basic_form = RequirementFormForm(request.POST, request.FILES, instance=instance, is_draft=False)
+            dynamic_form = DynamicForm(request.POST, sections=active_sections, instance=instance, is_draft=False)
+            
+            # Process name error check (only for final submissions)
+            process_name_error = None
+            process_name = request.POST.get('process_name')
+            query = RequirementForm.objects.filter(user=request.user, process_name=process_name, status='submitted')
+            if instance:
+                query = query.exclude(pk=instance.pk)
+            if query.exists():
+                process_name_error = f"You have already submitted a form for '{process_name}'. Please use a different process name."
+                messages.error(request, process_name_error)
+            
+            elif basic_form.is_valid() and dynamic_form.is_valid():
+                # Regular form processing for valid forms
                 requirement_form = basic_form.save(commit=False)
                 requirement_form.user = request.user
-
-                # Process steps detail (from dynamic JS form input)
+                
+                # Process steps handling
                 process_steps_detail = request.POST.get('process_steps_detail', '[]')
                 try:
-                    # Parse the JSON string into a Python object (list of dictionaries)
                     steps_data = json.loads(process_steps_detail)
-                    
-                    # Make sure steps_data is a list of dictionaries with number and description
                     valid_steps = []
                     for i, step in enumerate(steps_data):
                         if isinstance(step, dict) and 'description' in step and step['description'].strip():
-                            # Ensure the step has a valid number
                             step['number'] = step.get('number', i + 1)
                             valid_steps.append(step)
                         elif isinstance(step, str) and step.strip():
-                            # If it's just a string, convert to proper format
                             valid_steps.append({
                                 'number': i + 1,
                                 'description': step.strip()
                             })
                     
-                    # Store the validated steps
                     requirement_form.process_steps_detail = valid_steps
-                    # Sync step count with detailed steps
                     requirement_form.process_steps = len(valid_steps)
-                    
                 except json.JSONDecodeError:
-                    # If JSON parsing fails, initialize with empty list
                     requirement_form.process_steps_detail = []
                     requirement_form.process_steps = 0
                 
-                # Handle Save as Draft
-                if 'save_draft' in request.POST:
-                    requirement_form.status = 'draft'  
-                    
-                    # Handle file uploads
-                    if 'attachment' in request.FILES:
-                        file = request.FILES['attachment']
-                        if file.name.endswith('.pdf'):
-                            filename = f"{request.user.username}_{timezone.now().strftime('%Y%m%d%H%M%S')}.pdf"
-                            content = file.read()
-                            requirement_form.attachment.save(filename, ContentFile(content), save=False)
-                        else:
-                            messages.error(request, "Attachment must be a PDF file.")
-                            return redirect('form_view' if not form_id else 'form_view', form_id=form_id)
-                        
-                    # Handle flowchart upload (optional)
-                    if 'flowchart' in request.FILES:
-                        file = request.FILES['flowchart']
-                        if not file.name.endswith('.pdf'):
-                            messages.error(request, "Flowchart must be a PDF file.")
-                            return redirect('form_view' if not form_id else 'form_view', form_id=form_id)
-                    
-                    requirement_form.save()
-
-                    # Save responses for dynamic questions
-                    for field_name, value in dynamic_form.cleaned_data.items():
-                        if field_name.startswith('question_'):
-                            question_id = int(field_name.split('_')[1])
-                            question = FormQuestion.objects.get(id=question_id)
-
-                            # Convert list values to string for checkboxes
-                            if isinstance(value, list):
-                                value = ', '.join(value)
-
-                            # Create or update response
-                            QuestionResponse.objects.update_or_create(
-                                form=requirement_form,
-                                question=question,
-                                defaults={'response_text': value if value is not None else ''}
-                            )
-
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return JsonResponse({'success': True, 'message': 'Form saved as draft successfully.'})
-                    messages.success(request, "Form saved as draft successfully.")
-                    return redirect('dashboard')
-                
-                # Handle review option - store data in session and redirect to review page
-                elif 'review' in request.POST:
+                # Handle review option
+                if 'review' in request.POST:
                     # Store form data in session
                     form_data = {}
 
@@ -201,7 +276,6 @@ def form_view(request, form_id=None):
                     for key, value in request.POST.items():
                         if key.startswith('question_'):
                             question_id = key.split('_')[1]
-                            question_responses[question_id] = value
                             
                             # Convert list values to string for checkboxes
                             if isinstance(value, list):
@@ -234,20 +308,38 @@ def form_view(request, form_id=None):
                     # Redirect to review page
                     return redirect('review_form')
             else:
-                # If forms are invalid, display errors
+                # Display form errors
                 for field, errors in basic_form.errors.items():
                     for error in errors:
                         messages.error(request, f"{field}: {error}")
-
+                
                 for field, errors in dynamic_form.errors.items():
                     for error in errors:
                         messages.error(request, f"{field}: {error}")
-
+    
     else:
-        # Initial form load 
-        basic_form = RequirementFormForm(instance=instance)
-        dynamic_form = DynamicForm(sections=active_sections, instance=instance)
-        
+        # Initial form load
+        if form_data_from_session:
+            # Use data from session for initial form values
+            initial_data = {k: v for k, v in form_data_from_session.items() 
+                            if k not in ['csrfmiddlewaretoken', 'process_steps_detail', 'has_flowchart', 'has_attachment']}
+            
+            # Special handling for some fields if needed
+            if 'process_steps_detail' in form_data_from_session:
+                instance_process_steps_detail = json.dumps(form_data_from_session['process_steps_detail'])
+            
+            basic_form = RequirementFormForm(initial=initial_data, instance=instance)
+            
+            # Create dynamic form with stored responses
+            dynamic_form = DynamicForm(
+                initial=question_responses,
+                sections=active_sections, 
+                instance=instance
+            )
+        else:
+            basic_form = RequirementFormForm(instance=instance)
+            dynamic_form = DynamicForm(sections=active_sections, instance=instance)
+    
     # Group questions by section
     sections_with_questions = []
     for section in active_sections:
@@ -259,22 +351,24 @@ def form_view(request, form_id=None):
                     'question': question,
                     'field': dynamic_form[field_name]
                 })
-
-        if questions:  # Only add sections with active questions
+        
+        if questions:
             sections_with_questions.append({
                 'section': section,
                 'questions': questions
             })
-
+    
     context = {
         'basic_form': basic_form,
         'dynamic_form': dynamic_form,
         'sections_with_questions': sections_with_questions,
-        'is_draft': instance is not None,  # True if editing a draft
-        'form_id': form_id,  # Pass form_id to template
-        'process_name_error': process_name_error,
+        'is_draft': instance is not None,
+        'form_id': form_id,
+        'process_name_error': process_name_error if 'process_name_error' in locals() else None,
+        'instance_process_steps_detail': instance_process_steps_detail,
+        'form_data': form_data_from_session,  # Add this to pass session data to template
     }
-
+    
     return render(request, 'requirements_app/form.html', context)
 
 @login_required
@@ -507,10 +601,73 @@ def admin_dashboard(request):
 
 @user_passes_test(is_admin)
 def user_management(request):
-    users = User.objects.all().order_by('role', 'username')
+    # Get all unique wings for the filter dropdown
+    wings = User.objects.values('wing_name').distinct().exclude(wing_name='').order_by('wing_name')
+    
+    # Base queryset
+    users_list = User.objects.all()
+    
+    # Apply filters if provided
+    filters_applied = False
+    
+    # Username filter
+    username = request.GET.get('username', '')
+    if username:
+        users_list = users_list.filter(username__icontains=username)
+        filters_applied = True
+    
+    # Name filter
+    name = request.GET.get('name', '')
+    if name:
+        users_list = users_list.filter(
+            Q(first_name__icontains=name) | 
+            Q(last_name__icontains=name)
+        )
+        filters_applied = True
+    
+    # Wing filter
+    wing = request.GET.get('wing', '')
+    if wing:
+        users_list = users_list.filter(wing_name=wing)
+        filters_applied = True
+    
+    # Role filter
+    role = request.GET.get('role', '')
+    if role:
+        users_list = users_list.filter(role=role)
+        filters_applied = True
+    
+    # Order the results
+    users_list = users_list.order_by('role', 'username')
+    
+    # Get total count before pagination
+    total_users = User.objects.count()
+    
+    # Set up pagination
+    paginator = Paginator(users_list, 10)  # Show 10 users per page
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    # Calculate visible page range
+    page_range = []
+    if paginator.num_pages <= 7:
+        page_range = paginator.page_range
+    else:
+        current_page = page_obj.number
+        if current_page <= 4:
+            page_range = range(1, min(8, paginator.num_pages + 1))
+        elif current_page >= paginator.num_pages - 3:
+            page_range = range(max(1, paginator.num_pages - 6), paginator.num_pages + 1)
+        else:
+            page_range = range(current_page - 3, current_page + 4)
     
     context = {
-        'users': users,
+        'users': users_list,  # Keep for backward compatibility
+        'page_obj': page_obj,
+        'page_range': page_range,
+        'total_users': total_users,
+        'filters_applied': filters_applied,
+        'wings': wings,
     }
     return render(request, 'requirements_app/user_management.html', context)
 
@@ -1119,7 +1276,11 @@ def edit_form(request):
         return redirect('form')
     
     # Get form_id if we're editing an existing draft
-    form_id = request.session['form_data'].get('form_id')
+    form_data = request.session['form_data']
+    form_id = form_data.get('form_id')
+    
+    # Store an edit flag in the session
+    request.session['edit_after_review'] = True
     
     # Redirect back to form page
     if form_id:
@@ -2823,3 +2984,122 @@ def edit_submitted_form(request, form_id):
     }
 
     return render(request, 'requirements_app/edit_submitted_form.html', context)
+@login_required
+def download_review_pdf(request):
+    """Generate a PDF of the form being reviewed"""
+    # Check if there's form data in session
+    if 'form_data' not in request.session or 'question_responses' not in request.session:
+        messages.error(request, "No form data found for review. Please fill out the form again.")
+        return redirect('form')
+    
+    # Get form data from session
+    form_data = request.session['form_data']
+    question_responses = request.session['question_responses']
+    
+    # Create a mock form object to mimic the structure expected by the generate_pdf function
+    mock_form = type('obj', (object,), {
+        'user': request.user,
+        'process_name': form_data.get('process_name', ''),
+        'process_description': form_data.get('process_description', ''),
+        'process_steps_detail': form_data.get('process_steps_detail', []),
+        'time_taken': form_data.get('time_taken', ''),
+        'people_involved': form_data.get('people_involved', ''),
+        'process_steps': form_data.get('process_steps', ''),
+        'expected_features': form_data.get('expected_features', ''),
+        'internal_connectivity': form_data.get('internal_connectivity', ''),
+        'internal_connectivity_details': form_data.get('internal_connectivity_details', ''),
+        'external_connectivity': form_data.get('external_connectivity', ''),
+        'external_connectivity_details': form_data.get('external_connectivity_details', ''),
+        'expected_reports': form_data.get('expected_reports', ''),
+        'expected_analysis': form_data.get('expected_analysis', ''),
+        'status': 'draft',
+        'created_at': timezone.now(),
+        'updated_at': timezone.now(),
+        'submitted_at': None,
+    })
+    
+    # Get all active sections with questions
+    active_sections = FormSection.objects.filter(is_active=True).order_by('order')
+    
+    # Create a custom generate_preview_pdf function or modify the existing one
+    # Since the form is not yet saved, we need to handle this differently
+    
+    # Get signature data URI
+    signature_data_uri = None
+    if request.user.signature:
+        try:
+            with open(request.user.signature.path, 'rb') as f:
+                signature_content = f.read()
+                _, ext = os.path.splitext(request.user.signature.path)
+                mime_type = {
+                    '.png': 'image/png',
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.gif': 'image/gif'
+                }.get(ext.lower(), 'image/jpeg')
+                signature_data_uri = f"data:{mime_type};base64,{base64.b64encode(signature_content).decode('utf-8')}"
+        except Exception as e:
+            print(f"Error processing signature: {str(e)}")
+    
+    # Get logo as data URI
+    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
+    
+    # Create a map for storing question responses
+    responses_map = {}
+    for question_id, response_text in question_responses.items():
+        try:
+            question = FormQuestion.objects.get(id=int(question_id))
+            responses_map[question.id] = response_text
+        except (FormQuestion.DoesNotExist, ValueError):
+            continue
+    
+    # Create sections with answers structure
+    sections_with_answers = []
+    for section in active_sections:
+        section_answers = []
+        for question in section.questions.filter(is_active=True).order_by('order'):
+            if question.id in responses_map:
+                section_answers.append({
+                    'question': question,
+                    'answer_text': responses_map[question.id]
+                })
+        
+        if section_answers:
+            sections_with_answers.append({
+                'section': section,
+                'answers': section_answers
+            })
+    
+    # Render HTML content
+    html_string = render_to_string('requirements_app/pdf/form_template.html', {
+        'form': mock_form,
+        'user': request.user,
+        'logo_data_uri': logo_data_uri,
+        'signature_data_uri': signature_data_uri,
+        'current_date': timezone.now(),
+        'sections_with_answers': sections_with_answers
+    })
+    
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as output:
+        # Generate PDF
+        HTML(string=html_string).write_pdf(
+            output,
+            stylesheets=[
+                CSS(string='@page { size: A4; margin: 1.5cm }')
+            ]
+        )
+        output_path = output.name
+    
+    # Read the generated PDF
+    with open(output_path, 'rb') as f:
+        pdf_content = f.read()
+    
+    # Clean up the temporary file
+    os.unlink(output_path)
+    
+    # Create HTTP response with PDF
+    response = HttpResponse(pdf_content, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="requirement_form_preview_{request.user.username}.pdf"'
+    
+    return response

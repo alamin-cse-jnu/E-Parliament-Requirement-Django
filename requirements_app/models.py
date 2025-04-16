@@ -151,7 +151,6 @@ class RequirementForm(models.Model):
     # User information
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='requirement_forms')
     
-    
     # fields for Process Information
     process_name = models.CharField(max_length=100, blank=False)
     process_description = models.TextField(blank=False)
@@ -190,6 +189,15 @@ class RequirementForm(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'process_name', 'status'],
+                condition=models.Q(status='draft'),
+                name='unique_draft_per_process'
+            )
+        ]
+    
     def submit(self):
         self.status = 'submitted'
         self.submitted_at = timezone.now()
@@ -205,12 +213,15 @@ class RequirementForm(models.Model):
     
     # Update flowchart field to use custom path
     flowchart = models.FileField(upload_to=get_flowchart_upload_path, blank=True, null=True)
-
-class FormResponse(models.Model):
-    form = models.ForeignKey(RequirementForm, on_delete=models.CASCADE, related_name='form_responses')
-    question = models.ForeignKey(FormQuestion, on_delete=models.CASCADE)
-    answer = models.TextField(blank=True)
-
-    def __str__(self):
-        return f"{self.form} - {self.question.question_text}: {self.answer}"
+    
+    @classmethod
+    def get_or_create_draft(cls, user, process_name):
+        """Get existing draft or create a new one if none exists"""
+        try:
+            return cls.objects.get(user=user, process_name=process_name, status='draft')
+        except cls.DoesNotExist:
+            return cls(user=user, process_name=process_name, status='draft')
+        except cls.MultipleObjectsReturned:
+            # If multiple drafts exist (shouldn't happen with constraint, but for safety)
+            return cls.objects.filter(user=user, process_name=process_name, status='draft').order_by('-updated_at').first()
     

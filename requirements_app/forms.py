@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm 
 from .models import User, RequirementForm, FormSection, FormQuestion, QuestionResponse
 
 class UserRegistrationForm(forms.ModelForm):
@@ -69,7 +69,13 @@ class RequirementFormForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         self.instance_id = kwargs.pop('instance_id', None)
+        self.is_draft = kwargs.pop('is_draft', False)
         super(RequirementFormForm, self).__init__(*args, **kwargs)
+
+        # Make all fields not required when saving as draft
+        if self.is_draft:
+            for field_name, field in self.fields.items():
+                field.required = False
 
     def clean_process_name(self):
         process_name = self.cleaned_data.get('process_name')
@@ -94,6 +100,7 @@ class DynamicForm(forms.Form):
     def __init__(self, *args, **kwargs):
         sections = kwargs.pop('sections', None)
         instance = kwargs.pop('instance', None)
+        is_draft = kwargs.pop('is_draft', False)  # Add this parameter
         super(DynamicForm, self).__init__(*args, **kwargs)
         
         if not sections:
@@ -111,7 +118,7 @@ class DynamicForm(forms.Form):
                 field_name = f"question_{question.id}"
                 field_kwargs = {
                     'label': question.question_text,
-                    'required': question.is_required,
+                    'required': question.is_required and not is_draft,  # Not required when saving as draft
                     'help_text': question.help_text,
                 }
                 

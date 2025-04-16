@@ -22,6 +22,7 @@ urlpatterns = [
     path('review-form/', views.review_form, name='review_form'),
     path('edit-form/', views.edit_form, name='edit_form'),
     path('confirm-submission/', views.confirm_submission, name='confirm_submission'),
+    path('download-review-pdf/', views.download_review_pdf, name='download_review_pdf'),
     # Admin routes
     path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
     path('user-management/', views.user_management, name='user_management'),
