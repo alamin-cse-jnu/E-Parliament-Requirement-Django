@@ -426,34 +426,35 @@
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-    // Get the Save Draft button
-    const saveDraftBtn = document.querySelector('button[name="save_draft"]');
-    
-    if (saveDraftBtn) {
-        saveDraftBtn.addEventListener('click', function(e) {
-            e.preventDefault(); // Prevent normal form submission
-            
-            // Get the form
-            const form = document.getElementById('requirements-form');
-            
-            // Remove required attribute temporarily from all form elements
-            const requiredElements = form.querySelectorAll('[required]');
-            requiredElements.forEach(element => {
-                element.removeAttribute('required');
+        // Get the Save Draft button
+        const saveDraftBtn = document.querySelector('button[name="save_draft"]');
+        
+        if (saveDraftBtn) {
+            saveDraftBtn.addEventListener('click', function(e) {
+                e.preventDefault(); // Prevent normal form submission
+                
+                // Get the form
+                const form = document.getElementById('requirements-form');
+                
+                // Remove required attribute temporarily from all form elements
+                const requiredElements = form.querySelectorAll('[required]');
+                requiredElements.forEach(element => {
+                    element.removeAttribute('required');
+                });
+                
+                // Create hidden input to indicate draft save
+                const draftInput = document.createElement('input');
+                draftInput.type = 'hidden';
+                draftInput.name = 'save_draft';
+                draftInput.value = 'true';
+                form.appendChild(draftInput);
+                
+                // Submit the form
+                form.submit();
             });
-            
-            // Create hidden input to indicate draft save
-            const draftInput = document.createElement('input');
-            draftInput.type = 'hidden';
-            draftInput.name = 'save_draft';
-            draftInput.value = 'true';
-            form.appendChild(draftInput);
-            
-            // Submit the form
-            form.submit();
-        });
-    }
-});
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function() {
         // Toggle internal connectivity details based on selection
         const internalConnectivity = document.querySelector('[name="internal_connectivity"]');
@@ -487,191 +488,481 @@
     });
 
     // Process Steps functionality
-const processStepsContainer = document.getElementById('process-steps-container');
-const processStepsDetail = document.getElementById('process-steps-detail');
-const addStepBtn = document.getElementById('add-step-btn');
+    const processStepsContainer = document.getElementById('process-steps-container');
+    const processStepsDetail = document.getElementById('process-steps-detail');
+    const addStepBtn = document.getElementById('add-step-btn');
 
-// Function to create a step input
-function createStepInput(stepNumber, value = '') {
-    const stepDiv = document.createElement('div');
-    stepDiv.className = 'input-group mb-2 process-step';
-    stepDiv.dataset.step = stepNumber;
-    
-    const stepLabel = document.createElement('span');
-    stepLabel.className = 'input-group-text bg-primary text-white';
-    stepLabel.style.width = '80px';
-    stepLabel.textContent = `Step ${stepNumber}:`;
-    
-    const stepInput = document.createElement('input');
-    stepInput.type = 'text';
-    stepInput.className = 'form-control step-input';
-    stepInput.value = value;
-    stepInput.placeholder = `Enter step ${stepNumber} details...`;
-    
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'btn btn-outline-danger';
-    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-    removeBtn.onclick = function() {
-        stepDiv.remove();
-        updateStepNumbers();
-        updateHiddenField();
-    };
-    
-    stepDiv.appendChild(stepLabel);
-    stepDiv.appendChild(stepInput);
-    stepDiv.appendChild(removeBtn);
-    
-    return stepDiv;
-}
+    // Variables for drag and drop
+    let dragSource = null;
 
-// Function to update step numbers
-function updateStepNumbers() {
-    const steps = processStepsContainer.querySelectorAll('.process-step');
-    steps.forEach((step, index) => {
-        const stepNumber = index + 1;
-        step.dataset.step = stepNumber;
-        step.querySelector('.input-group-text').textContent = `Step ${stepNumber}:`;
-        step.querySelector('input').placeholder = `Enter step ${stepNumber} details...`;
-    });
-}
-
-// Function to update the hidden field with steps data
-function updateHiddenField() {
-    const steps = [];
-    const stepInputs = processStepsContainer.querySelectorAll('.step-input');
-    
-    stepInputs.forEach((input, index) => {
-        if (input.value.trim() !== '') {
-            steps.push({
-                number: index + 1,
-                description: input.value.trim()
-            });
-        }
-    });
-    
-    processStepsDetail.value = JSON.stringify(steps);
-    console.log("Updated steps:", processStepsDetail.value);
-}
-
-// Add event listener to add step button
-addStepBtn.addEventListener('click', function() {
-    const stepCount = processStepsContainer.querySelectorAll('.process-step').length;
-    processStepsContainer.appendChild(createStepInput(stepCount + 1));
-    updateHiddenField();
-});
-
-// Add default steps on page load
-function initializeSteps() {
-    // Make sure the process_steps_detail value is properly formatted
-    let existingSteps = [];
-    
-    try {
-        // Check if we have process steps from an existing draft
-        {% if is_draft and instance_process_steps_detail %}
-            existingSteps = JSON.parse('{{ instance_process_steps_detail|escapejs }}');
-        {% elif form_data and form_data.process_steps_detail %}
-            // Handle process steps from session data
-            existingSteps = {{ form_data.process_steps_detail|safe }};
-        {% else %}
-            // This should get the raw JSON string and parse it
-            const stepsJson = document.getElementById('process-steps-detail').value;
-            if (stepsJson && stepsJson !== '[]') {
-                existingSteps = JSON.parse(stepsJson);
+    // Add CSS for drag and drop visual cues
+    function addDragAndDropStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .process-step.dragging {
+                opacity: 0.6;
             }
-        {% endif %}
-    } catch (e) {
-        console.error('Error parsing existing steps:', e);
-        console.log('Raw data:', '{{ instance_process_steps_detail|escapejs }}');
+            .process-step.drag-over {
+                border: 2px dashed #007bff;
+                background-color: #f0f8ff;
+            }
+            .cursor-move {
+                cursor: move;
+            }
+            .process-step {
+                transition: all 0.2s ease;
+            }
+        `;
+        document.head.appendChild(style);
     }
-    
-    // Clear any existing steps first
-    processStepsContainer.innerHTML = '';
-    
-    if (existingSteps && existingSteps.length > 0) {
-        // Add existing steps
-        existingSteps.forEach(step => {
-            processStepsContainer.appendChild(createStepInput(step.number || step.number === 0 ? step.number : existingSteps.indexOf(step) + 1, step.description));
+
+    // Drag and drop event handlers
+    function handleDragStart(e) {
+        // Add a class to indicate the dragged element
+        this.classList.add('dragging');
+        
+        // Store the source element
+        dragSource = this;
+        
+        // Set the data being dragged
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.dataset.step);
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault(); // Necessary to allow dropping
+        }
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleDragEnter(e) {
+        // Add a class to highlight the potential drop target
+        this.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+        // Remove the highlight class
+        this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+        // Stop the browser from redirecting
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+        
+        // Only proceed if we're dropping on a different element
+        if (dragSource !== this) {
+            // Get the container and all steps
+            const container = processStepsContainer;
+            const steps = Array.from(container.querySelectorAll('.process-step'));
+            
+            // Get indexes
+            const sourceIndex = steps.indexOf(dragSource);
+            const targetIndex = steps.indexOf(this);
+            
+            // Reorder elements
+            if (sourceIndex < targetIndex) {
+                container.insertBefore(dragSource, this.nextSibling);
+            } else {
+                container.insertBefore(dragSource, this);
+            }
+            
+            // Update step numbers after reordering
+            updateStepNumbers();
+            updateHiddenField();
+        }
+        
+        // Remove the highlight class
+        this.classList.remove('drag-over');
+        
+        return false;
+    }
+
+    function handleDragEnd(e) {
+        // Reset dragSource
+        dragSource = null;
+        
+        // Remove the dragging class
+        this.classList.remove('dragging');
+        
+        // Remove drag-over class from all steps
+        const steps = document.querySelectorAll('.process-step');
+        steps.forEach(step => {
+            step.classList.remove('drag-over');
         });
-    } else {
-        // Add default empty steps
-        for (let i = 1; i <= 10; i++) {
-            processStepsContainer.appendChild(createStepInput(i));
+    }
+
+    // Function to insert a step at a specific position
+    function insertStepAt(index) {
+        const steps = processStepsContainer.querySelectorAll('.process-step');
+        
+        // If index is beyond the current steps count, just add a new step at the end
+        if (index >= steps.length) {
+            processStepsContainer.appendChild(createStepInput(steps.length + 1));
+        } else {
+            // Create a new step to insert
+            const newStep = createStepInput(index + 1);
+            
+            // Insert the new step at the specified position
+            processStepsContainer.insertBefore(newStep, steps[index]);
+            
+            // Update the step numbers
+            updateStepNumbers();
+        }
+        
+        // Update hidden field
+        updateHiddenField();
+    }
+
+    // Function to create a step input with drag-and-drop and insert features
+    function createStepInput(stepNumber, value = '') {
+        const stepDiv = document.createElement('div');
+        stepDiv.className = 'input-group mb-2 process-step';
+        stepDiv.dataset.step = stepNumber;
+        stepDiv.draggable = true; // Make it draggable
+        
+        // Add drag handle for better UX
+        const dragHandle = document.createElement('span');
+        dragHandle.className = 'input-group-text bg-secondary cursor-move';
+        dragHandle.innerHTML = '<i class="fas fa-grip-vertical"></i>';
+        dragHandle.style.cursor = 'move';
+        
+        // Original elements
+        const stepLabel = document.createElement('span');
+        stepLabel.className = 'input-group-text bg-primary text-white';
+        stepLabel.style.width = '80px';
+        stepLabel.textContent = `Step ${stepNumber}:`;
+        
+        const stepInput = document.createElement('input');
+        stepInput.type = 'text';
+        stepInput.className = 'form-control step-input';
+        stepInput.value = value;
+        stepInput.placeholder = `Enter step ${stepNumber} details...`;
+        
+        // Add a button for inserting a step after this one
+        const insertBtn = document.createElement('button');
+        insertBtn.type = 'button';
+        insertBtn.className = 'btn btn-outline-success';
+        insertBtn.title = 'Insert step after this one';
+        insertBtn.innerHTML = '<i class="fas fa-plus"></i>';
+        insertBtn.onclick = function() {
+            // Insert a step after the current one
+            const index = parseInt(stepDiv.dataset.step);
+            insertStepAt(index);
+        };
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-outline-danger';
+        removeBtn.title = 'Remove this step';
+        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        removeBtn.onclick = function() {
+            stepDiv.remove();
+            updateStepNumbers();
+            updateHiddenField();
+        };
+        
+        // Add all elements to the step div
+        stepDiv.appendChild(dragHandle);
+        stepDiv.appendChild(stepLabel);
+        stepDiv.appendChild(stepInput);
+        stepDiv.appendChild(insertBtn);
+        stepDiv.appendChild(removeBtn);
+        
+        // Add drag event listeners
+        stepDiv.addEventListener('dragstart', handleDragStart);
+        stepDiv.addEventListener('dragover', handleDragOver);
+        stepDiv.addEventListener('dragenter', handleDragEnter);
+        stepDiv.addEventListener('dragleave', handleDragLeave);
+        stepDiv.addEventListener('drop', handleDrop);
+        stepDiv.addEventListener('dragend', handleDragEnd);
+        
+        return stepDiv;
+    }
+
+    // Function to update step numbers
+    function updateStepNumbers() {
+        const steps = processStepsContainer.querySelectorAll('.process-step');
+        steps.forEach((step, index) => {
+            const stepNumber = index + 1;
+            step.dataset.step = stepNumber;
+            
+            // Update the label (second child element after drag handle)
+            const stepLabel = step.querySelector('.input-group-text:nth-child(2)');
+            if (stepLabel) {
+                stepLabel.textContent = `Step ${stepNumber}:`;
+            }
+            
+            // Update the placeholder
+            const stepInput = step.querySelector('.step-input');
+            if (stepInput) {
+                stepInput.placeholder = `Enter step ${stepNumber} details...`;
+            }
+        });
+    }
+
+    // Function to update the hidden field with steps data
+    function updateHiddenField() {
+        const steps = [];
+        const stepInputs = processStepsContainer.querySelectorAll('.step-input');
+        
+        stepInputs.forEach((input, index) => {
+            if (input.value.trim() !== '') {
+                steps.push({
+                    number: index + 1,
+                    description: input.value.trim()
+                });
+            }
+        });
+        
+        processStepsDetail.value = JSON.stringify(steps);
+        console.log("Updated steps:", processStepsDetail.value);
+    }
+
+    // Add touch support for mobile devices
+    function addTouchSupport() {
+        // Check for touch devices
+        if ('ontouchstart' in window) {
+            document.addEventListener('touchstart', function(e) {
+                const element = e.target.closest('.process-step');
+                if (!element) return;
+                
+                const touch = e.targetTouches[0];
+                element.touchStartX = touch.clientX;
+                element.touchStartY = touch.clientY;
+                
+                // Track the element being moved
+                window.touchDragElement = element;
+                element.classList.add('dragging');
+                
+                // Create a placeholder to show where the item will be dropped
+                const placeholder = document.createElement('div');
+                placeholder.className = 'drag-placeholder';
+                placeholder.style.height = element.offsetHeight + 'px';
+                placeholder.style.backgroundColor = '#f8f9fa';
+                placeholder.style.border = '2px dashed #ccc';
+                placeholder.style.marginBottom = '8px';
+                placeholder.style.borderRadius = '4px';
+                
+                window.dragPlaceholder = placeholder;
+            }, { passive: false });
+            
+            document.addEventListener('touchmove', function(e) {
+                const element = window.touchDragElement;
+                if (!element) return;
+                
+                // Prevent scrolling
+                e.preventDefault();
+                
+                const touch = e.targetTouches[0];
+                
+                // Move the element visually
+                element.style.position = 'absolute';
+                element.style.zIndex = 1000;
+                element.style.top = (touch.pageY - 20) + 'px';
+                
+                // Detect element below
+                const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const stepBelow = elemBelow ? elemBelow.closest('.process-step') : null;
+                
+                if (stepBelow && stepBelow !== element) {
+                    // Show drop indicator
+                    stepBelow.classList.add('drag-over');
+                    
+                    // Remove drag-over from all other elements
+                    document.querySelectorAll('.process-step').forEach(step => {
+                        if (step !== stepBelow) {
+                            step.classList.remove('drag-over');
+                        }
+                    });
+                }
+            }, { passive: false });
+            
+            document.addEventListener('touchend', function(e) {
+                const element = window.touchDragElement;
+                if (!element) return;
+                
+                // Reset styling
+                element.style.position = '';
+                element.style.zIndex = '';
+                element.style.top = '';
+                element.classList.remove('dragging');
+                
+                const touch = e.changedTouches[0];
+                
+                // Get element at touch position
+                const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const stepBelow = elemBelow ? elemBelow.closest('.process-step') : null;
+                
+                if (stepBelow && stepBelow !== element) {
+                    // Move the element to its new position
+                    if (Array.from(processStepsContainer.children).indexOf(element) < 
+                        Array.from(processStepsContainer.children).indexOf(stepBelow)) {
+                        // Insert after the element below
+                        stepBelow.after(element);
+                    } else {
+                        // Insert before the element below
+                        stepBelow.before(element);
+                    }
+                    
+                    // Update step numbers and hidden field
+                    updateStepNumbers();
+                    updateHiddenField();
+                }
+                
+                // Remove drag-over from all elements
+                document.querySelectorAll('.process-step').forEach(step => {
+                    step.classList.remove('drag-over');
+                });
+                
+                // Clean up
+                window.touchDragElement = null;
+                if (window.dragPlaceholder && window.dragPlaceholder.parentNode) {
+                    window.dragPlaceholder.parentNode.removeChild(window.dragPlaceholder);
+                }
+                window.dragPlaceholder = null;
+            }, { passive: false });
         }
     }
-    
-    // Update hidden field on any input changes
-    processStepsContainer.addEventListener('input', updateHiddenField);
-    updateHiddenField();
-}
 
-// Call initialize function
-document.addEventListener('DOMContentLoaded', function() {
-    initializeSteps();
-});
+    // Add reordering instructions
+    function addReorderingInstructions() {
+        const instructionDiv = document.createElement('div');
+        instructionDiv.className = 'alert alert-info mt-2 mb-3';
+        instructionDiv.innerHTML = `
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Pro Tip:</strong> You can drag and drop steps to reorder them, or use the <i class="fas fa-plus"></i> button to insert a new step at a specific position.
+        `;
+        
+        // Insert before the "Add Step" button
+        const addStepBtnParent = document.getElementById('add-step-btn').parentNode;
+        addStepBtnParent.insertBefore(instructionDiv, addStepBtn);
+    }
+
+    // Add event listener to add step button
+    addStepBtn.addEventListener('click', function() {
+        const stepCount = processStepsContainer.querySelectorAll('.process-step').length;
+        processStepsContainer.appendChild(createStepInput(stepCount + 1));
+        updateHiddenField();
+    });
+
+    // Add default steps on page load
+    function initializeSteps() {
+        // First, add styles and touch support
+        addDragAndDropStyles();
+        addTouchSupport();
+        
+        // Make sure the process_steps_detail value is properly formatted
+        let existingSteps = [];
+        
+        try {
+            // Check if we have process steps from an existing draft
+            {% if is_draft and instance_process_steps_detail %}
+                existingSteps = JSON.parse('{{ instance_process_steps_detail|escapejs }}');
+            {% elif form_data and form_data.process_steps_detail %}
+                // Handle process steps from session data
+                existingSteps = {{ form_data.process_steps_detail|safe }};
+            {% else %}
+                // This should get the raw JSON string and parse it
+                const stepsJson = document.getElementById('process-steps-detail').value;
+                if (stepsJson && stepsJson !== '[]') {
+                    existingSteps = JSON.parse(stepsJson);
+                }
+            {% endif %}
+        } catch (e) {
+            console.error('Error parsing existing steps:', e);
+            console.log('Raw data:', '{{ instance_process_steps_detail|escapejs }}');
+        }
+        
+        // Clear any existing steps first
+        processStepsContainer.innerHTML = '';
+        
+        if (existingSteps && existingSteps.length > 0) {
+            // Add existing steps
+            existingSteps.forEach(step => {
+                processStepsContainer.appendChild(createStepInput(step.number || step.number === 0 ? step.number : existingSteps.indexOf(step) + 1, step.description));
+            });
+        } else {
+            // Add default empty steps
+            for (let i = 1; i <= 10; i++) {
+                processStepsContainer.appendChild(createStepInput(i));
+            }
+        }
+        
+        // Update hidden field on any input changes
+        processStepsContainer.addEventListener('input', updateHiddenField);
+        updateHiddenField();
+        
+        // Add instructions after steps are loaded
+        setTimeout(addReorderingInstructions, 500);
+    }
+
+    // Call initialize function
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeSteps();
+    });
 
     // Auto-save draft every 2 minutes
-let autoSaveInterval = 2 * 60 * 1000; // 2 minutes in milliseconds
-let lastAutoSaveTime = Date.now();
+    let autoSaveInterval = 2 * 60 * 1000; // 2 minutes in milliseconds
+    let lastAutoSaveTime = Date.now();
 
-function autoSaveDraft() {
-    // Only auto-save if there have been changes since last save
-    const form = document.getElementById('requirements-form');
-    const processNameField = form.querySelector('[name="process_name"]');
-    
-    // Don't save if no process name (key identifier) is entered yet
-    if (!processNameField || !processNameField.value.trim()) {
-        console.log('Auto-save skipped: No process name entered yet');
-        return;
-    }
-    
-    let formData = new FormData(form);
-    formData.append('save_draft', 'true');
-    formData.append('auto_save', 'true'); // Flag to indicate this is an auto-save request
-    
-    fetch('{% if form_id %}{% url "form_view" form_id %}{% else %}{% url "form" %}{% endif %}', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRFToken': '{{ csrf_token }}'
+    function autoSaveDraft() {
+        // Only auto-save if there have been changes since last save
+        const form = document.getElementById('requirements-form');
+        const processNameField = form.querySelector('[name="process_name"]');
+        
+        // Don't save if no process name (key identifier) is entered yet
+        if (!processNameField || !processNameField.value.trim()) {
+            console.log('Auto-save skipped: No process name entered yet');
+            return;
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('Form auto-saved at ' + new Date().toLocaleTimeString());
-            lastAutoSaveTime = Date.now();
-            
-            // Update form_id if provided (for new drafts)
-            if (data.form_id) {
-                // Update the URL without refreshing if this is a new draft
-                const currentUrl = window.location.pathname;
-                if (currentUrl.endsWith('/form/')) {
-                    const newUrl = `/form/${data.form_id}/`;
-                    history.pushState({}, '', newUrl);
+        
+        let formData = new FormData(form);
+        formData.append('save_draft', 'true');
+        formData.append('auto_save', 'true'); // Flag to indicate this is an auto-save request
+        
+        fetch('{% if form_id %}{% url "form_view" form_id %}{% else %}{% url "form" %}{% endif %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Form auto-saved at ' + new Date().toLocaleTimeString());
+                lastAutoSaveTime = Date.now();
+                
+                // Update form_id if provided (for new drafts)
+                if (data.form_id) {
+                    // Update the URL without refreshing if this is a new draft
+                    const currentUrl = window.location.pathname;
+                    if (currentUrl.endsWith('/form/')) {
+                        const newUrl = `/form/${data.form_id}/`;
+                        history.pushState({}, '', newUrl);
+                    }
                 }
             }
-        }
-    })
-    .catch(error => {
-        console.error('Error auto-saving form:', error);
-    });
-}
+        })
+        .catch(error => {
+            console.error('Error auto-saving form:', error);
+        });
+    }
 
-// Only set up auto-save for active form editing
-if (document.getElementById('requirements-form')) {
-    // Set up auto-save timer
-    const autoSaveTimer = setInterval(autoSaveDraft, autoSaveInterval);
-    
-    // Clear auto-save when leaving the page
-    window.addEventListener('beforeunload', function() {
-        clearInterval(autoSaveTimer);
-    });
-}
-    
-    // Set up auto-save timer
-    setInterval(autoSaveDraft, autoSaveInterval);
-    
+    // Only set up auto-save for active form editing
+    if (document.getElementById('requirements-form')) {
+        // Set up auto-save timer
+        const autoSaveTimer = setInterval(autoSaveDraft, autoSaveInterval);
+        
+        // Clear auto-save when leaving the page
+        window.addEventListener('beforeunload', function() {
+            clearInterval(autoSaveTimer);
+        });
+    }
 </script>
 {% endblock %}

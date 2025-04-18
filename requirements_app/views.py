@@ -2898,6 +2898,27 @@ def edit_submitted_form(request, form_id):
             # Save the basic form
             requirement_form = basic_form.save(commit=False)
             
+            # Process steps handling
+            process_steps_detail = request.POST.get('process_steps_detail', '[]')
+            try:
+                steps_data = json.loads(process_steps_detail)
+                valid_steps = []
+                for i, step in enumerate(steps_data):
+                    if isinstance(step, dict) and 'description' in step and step['description'].strip():
+                        step['number'] = step.get('number', i + 1)
+                        valid_steps.append(step)
+                    elif isinstance(step, str) and step.strip():
+                        valid_steps.append({
+                            'number': i + 1,
+                            'description': step.strip()
+                        })
+                
+                requirement_form.process_steps_detail = valid_steps
+                requirement_form.process_steps = len(valid_steps)
+            except json.JSONDecodeError:
+                requirement_form.process_steps_detail = []
+                requirement_form.process_steps = 0
+            
             # Handle file uploads
             if 'attachment' in request.FILES:
                 file = request.FILES['attachment']
@@ -2984,6 +3005,7 @@ def edit_submitted_form(request, form_id):
     }
 
     return render(request, 'requirements_app/edit_submitted_form.html', context)
+
 @login_required
 def download_review_pdf(request):
     """Generate a PDF of the form being reviewed"""
