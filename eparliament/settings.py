@@ -7,10 +7,6 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-t*2-=oa=!^yq83)2z=^_&g%e0#q*ytt$m4=i5qywy-6u8-qa7q'
 
@@ -144,14 +140,15 @@ STATICFILES_DIRS = [
 # Media files (User uploaded files)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
+DATA_UPLOAD_MAX_MEMORY_SIZE = 20971520  # 20MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 20971520  # 20MB
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Add this at the very end of settings.py
+#Debug
 if DEBUG:
     from django.conf.urls.static import static
     urlpatterns = static(MEDIA_URL, document_root=MEDIA_ROOT) + static(STATIC_URL, document_root=STATIC_ROOT)
