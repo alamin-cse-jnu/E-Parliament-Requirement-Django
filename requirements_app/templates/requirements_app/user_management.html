@@ -1,59 +1,57 @@
-{% extends "requirements_app/base.html" %}
+{% extends "requirements_app/admin_template.html" %}
 {% load custom_tags %}
 
 {% block title %}User Management - E-Parliament Bangladesh{% endblock %}
 
-{% block extra_css %}
-<style>
-    .table-responsive {
-        overflow-x: auto;
-    }
-    .user-table {
-        width: 100%;
-        min-width: 1000px; /* Ensures table doesn't get too compressed */
-    }
-    .action-column {
-        width: 120px;
-        white-space: nowrap;
-    }
-    .pagination {
-        margin-top: 20px;
-    }
-    .role-badge {
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 0.8em;
-        font-weight: 600;
-    }
-    .badge-admin {
-        background-color: #dc3545;
-        color: white;
-    }
-    .badge-user {
-        background-color: #17a2b8;
-        color: white;
-    }
-    .search-box {
-        margin-bottom: 20px;
-        border-radius: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .search-header {
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-        padding: 15px;
-        border-radius: 10px 10px 0 0;
-    }
-    .search-body {
-        padding: 15px;
-    }
-    .sl-column {
-        width: 60px;
-    }
-</style>
+{% block custom_styles %}
+.table-responsive {
+    overflow-x: auto;
+}
+.user-table {
+    width: 100%;
+    min-width: 1000px; /* Ensures table doesn't get too compressed */
+}
+.action-column {
+    width: 120px;
+    white-space: nowrap;
+}
+.pagination {
+    margin-top: 20px;
+}
+.role-badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+.badge-admin {
+    background-color: #dc3545;
+    color: white;
+}
+.badge-user {
+    background-color: #17a2b8;
+    color: white;
+}
+.search-box {
+    margin-bottom: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.search-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 15px;
+    border-radius: 10px 10px 0 0;
+}
+.search-body {
+    padding: 15px;
+}
+.sl-column {
+    width: 60px;
+}
 {% endblock %}
 
-{% block content %}
+{% block main_content %}
 <div class="row mb-4">
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center">
@@ -226,8 +224,9 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- Initialize tooltips -->
+{% block extra_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

@@ -1,198 +1,627 @@
-{% extends "requirements_app/base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - E-Parliament Bangladesh</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- Custom CSS -->
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Sidebar styling */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 250px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding-top: 20px;
+            box-shadow: 3px 0 10px rgba(0,0,0,0.1);
+            z-index: 100;
+            transition: all 0.3s;
+        }
+        
+        .sidebar-header {
+            text-align: center;
+            padding: 0 15px 20px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 15px;
+        }
+        
+        .sidebar-header img {
+            max-width: 60px;
+            margin-bottom: 10px;
+        }
+        
+        .sidebar-header h4 {
+            color: #ecf0f1;
+            margin-bottom: 5px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .sidebar-header p {
+            color: #bdc3c7;
+            font-size: 0.8rem;
+            margin-bottom: 0;
+        }
+        
+        .sidebar .nav-link {
+            color: #ecf0f1;
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin: 2px 10px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .sidebar .nav-link:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        .sidebar .nav-link.active {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .sidebar .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .sidebar-category {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #95a5a6;
+            margin: 20px 0 5px 20px;
+            font-weight: 600;
+        }
+        
+        /* Main content area */
+        .main-content {
+            margin-left: 250px;
+            padding: 20px 30px;
+            transition: all 0.3s;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Dashboard cards */
+        .dashboard-card {
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            height: 100%;
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .card-stats {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .card-stats .icon-big {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #28a745;
+        }
+        
+        .card-stats .numbers .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .card-stats .numbers .card-text {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0;
+        }
+        
+        /* Chart containers */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .toggle-sidebar {
+            position: fixed;
+            top: 20px;
+            left: 260px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 101;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        body.sidebar-collapsed .sidebar {
+            width: 70px;
+        }
+        
+        body.sidebar-collapsed .main-content {
+            margin-left: 70px;
+        }
+        
+        body.sidebar-collapsed .sidebar-header h4,
+        body.sidebar-collapsed .sidebar-header p,
+        body.sidebar-collapsed .nav-link span,
+        body.sidebar-collapsed .sidebar-category {
+            display: none;
+        }
+        
+        body.sidebar-collapsed .toggle-sidebar {
+            left: 80px;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 70px;
+            }
+            
+            .main-content {
+                margin-left: 70px;
+            }
+            
+            .sidebar-header h4,
+            .sidebar-header p,
+            .nav-link span,
+            .sidebar-category {
+                display: none;
+            }
+            
+            .toggle-sidebar {
+                left: 80px;
+            }
+            
+            body.sidebar-expanded .sidebar {
+                width: 250px;
+            }
+            
+            body.sidebar-expanded .main-content {
+                margin-left: 250px;
+            }
+            
+            body.sidebar-expanded .sidebar-header h4,
+            body.sidebar-expanded .sidebar-header p,
+            body.sidebar-expanded .nav-link span,
+            body.sidebar-expanded .sidebar-category {
+                display: block;
+            }
+            
+            body.sidebar-expanded .toggle-sidebar {
+                left: 260px;
+            }
+        }
 
-{% block title %}Admin Dashboard - E-Parliament Bangladesh{% endblock %}
-
-{% block extra_css %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{% endblock %}
-
-{% block content %}
-<div class="row">
-    <div class="col-md-12 mb-4">
-        <h2>Admin Dashboard</h2>
-        <p class="text-muted">Overview of system activity and responses</p>
-    </div>
-</div>
-
-<!-- Admin Quick Links Section -->
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title">Admin Quick Links</h5>
-                <div class="row">
-                    <div class="col-md-3">
-                        <a href="{% url 'user_management' %}" class="btn btn-primary btn-block mb-2">User Management</a>
+        /* Statistic badges */
+        .stat-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin: 2px;
+        }
+        
+        /* Footer */
+        .footer {
+            margin-top: auto;
+            text-align: center;
+            padding: 15px;
+            color: rgba(7, 16, 138, 0.774);
+            font-size: 0.9rem;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        /* Chart placeholder */
+        .chart-placeholder {
+            display: flex;
+            height: 100%;
+            justify-content: center;
+            align-items: center;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            color: #6c757d;
+            flex-direction: column;
+        }
+        
+        .chart-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Toggle Button -->
+    <button class="toggle-sidebar">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <img src="/static/images/parliament_logo.png" alt="Logo">
+            <h4>E-Parliament</h4>
+            <p>Admin Dashboard</p>
+        </div>
+        
+        <div class="px-3">
+            <div class="d-flex align-items-center mb-3">
+                <div class="bg-success rounded-circle p-2 me-2">
+                    <i class="fas fa-user text-white"></i>
+                </div>
+                <div>
+                    <span class="d-block">Welcome, Admin</span>
+                    <small class="text-muted">Administrator</small>
+                </div>
+            </div>
+        </div>
+        
+        <p class="sidebar-category">Core</p>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link active" href="{% url 'admin_dashboard' %}">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+        </ul>
+        
+        <p class="sidebar-category">Users Management</p>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'user_management' %}">
+                    <i class="fas fa-users"></i>
+                    <span>User Management</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'register_user' %}">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Register New User</span>
+                </a>
+            </li>
+        </ul>
+        
+        <p class="sidebar-category">Forms & Data</p>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'view_responses' %}">
+                    <i class="fas fa-file-alt"></i>
+                    <span>View Responses</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'data_analysis' %}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Data Analysis</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'reports' %}">
+                    <i class="fas fa-file-pdf"></i>
+                    <span>Reports</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'manage_form_structure' %}">
+                    <i class="fas fa-tasks"></i>
+                    <span>Form Structure</span>
+                </a>
+            </li>
+        </ul>
+        
+        <p class="sidebar-category">System</p>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'download_user_list' %}">
+                    <i class="fas fa-download"></i>
+                    <span>Download User List</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'logout' %}">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h1 class="mb-0">Admin Dashboard</h1>
+                <p class="text-muted">Overview of system activity and responses</p>
+            </div>
+        </div>
+        
+        <!-- Stats Cards Row -->
+        <div class="row mb-4">
+            <!-- Total Users Block -->
+            <div class="col-md-3">
+                <div class="card dashboard-card mb-4 h-100">
+                    <div class="card-stats">
+                        <div class="icon-big">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="numbers">
+                            <p class="card-title">Total Users</p>
+                            <p class="card-text">{{ total_users|add:total_admins }}</p>
+                        </div>
+                        <div class="mt-3">
+                            <span class="stat-badge bg-primary text-white">
+                                <i class="fas fa-user-shield me-1"></i> Admin: {{ total_admins }}
+                            </span>
+                            <span class="stat-badge bg-info text-white">
+                                <i class="fas fa-user me-1"></i> Users: {{ total_users }}
+                            </span>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <a href="{% url 'view_responses' %}" class="btn btn-info btn-block mb-2">View Responses</a>
+                </div>
+            </div>
+            
+            <!-- Submitted Forms Block -->
+            <div class="col-md-3">
+                <div class="card dashboard-card mb-4 h-100">
+                    <div class="card-stats">
+                        <div class="icon-big">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="numbers">
+                            <p class="card-title">Submitted Forms</p>
+                            <p class="card-text">{{ submitted_forms }}</p>
+                        </div>
+                        <div class="mt-3">
+                            <span class="stat-badge bg-success text-white">
+                                <i class="fas fa-percentage me-1"></i> {{ response_rate|floatformat:1 }}% Rate
+                            </span>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <a href="{% url 'data_analysis' %}" class="btn btn-success btn-block mb-2">Data Analysis</a>
+                </div>
+            </div>
+            
+            <!-- Draft Forms Block -->
+            <div class="col-md-3">
+                <div class="card dashboard-card mb-4 h-100">
+                    <div class="card-stats">
+                        <div class="icon-big">
+                            <i class="fas fa-edit"></i>
+                        </div>
+                        <div class="numbers">
+                            <p class="card-title">Draft Forms</p>
+                            <p class="card-text">{{ draft_forms }}</p>
+                        </div>
+                        <div class="mt-3">
+                            <span class="stat-badge bg-warning text-dark">
+                                <i class="fas fa-spinner me-1"></i> In Progress
+                            </span>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <a href="{% url 'manage_form_structure' %}" class="btn btn-warning btn-block mb-2">Manage Form Structure</a>
+                </div>
+            </div>
+            
+            <!-- Participating Users Count Block -->
+            <div class="col-md-3">
+                <div class="card dashboard-card mb-4 h-100">
+                    <div class="card-stats">
+                        <div class="icon-big">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="numbers">
+                            <p class="card-title">Participating Users</p>
+                            <p class="card-text">{{ participating_users_count }}</p>
+                        </div>
+                        <div class="mt-3">
+                            <span class="stat-badge bg-success text-white">
+                                <i class="fas fa-building me-1"></i> Wings: {{ participating_wings_count }}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-3">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">Total Users</h5>
-                <p class="card-text display-4">{{ total_users }}</p>
+        
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <!-- Forms By Wing Bar Chart -->
+            <div class="col-md-6">
+                <div class="card dashboard-card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-building me-2"></i>Forms by Wing</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" id="formsByWingContainer">
+                            {% if chart_data.wing_labels|length > 0 %}
+                                <canvas id="formsByWingChart"></canvas>
+                            {% else %}
+                                <div class="chart-placeholder">
+                                    <i class="fas fa-chart-bar"></i>
+                                    <p>No data available</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Participating Users Chart -->
+            <div class="col-md-6">
+                <div class="card dashboard-card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-users me-2"></i>Participating Users by Wing</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" id="participatingUsersContainer">
+                            {% if chart_data.participating_wing_labels|length > 0 %}
+                                <canvas id="participatingUsersChart"></canvas>
+                            {% else %}
+                                <div class="chart-placeholder">
+                                    <i class="fas fa-users"></i>
+                                    <p>No data available</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">Total Admins</h5>
-                <p class="card-text display-4">{{ total_admins }}</p>
-            </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p>© {% now "Y" %} Developed by@Software Development Section - B&IT Wing.</p>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">Submitted Forms</h5>
-                <p class="card-text display-4">{{ submitted_forms }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">Draft Forms</h5>
-                <p class="card-text display-4">{{ draft_forms }}</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Form Structure Stats -->
-<div class="row">
-    <div class="col-md-3">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">Total Sections</h5>
-                <p class="card-text display-4">{{ total_sections }}</p>
-                <p class="text-muted">Active: {{ active_sections }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body text-center">
-                <h5 class="card-title">Total Questions</h5>
-                <p class="card-text display-4">{{ total_questions }}</p>
-                <p class="text-muted">Active: {{ active_questions }}</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-6">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Response Rate</h5>
-                <canvas id="responseRateChart"></canvas>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Forms by Wing</h5>
-                <canvas id="formsByWingChart"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-6">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Forms by Department</h5>
-                <canvas id="formsByDepartmentChart"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Pass chart data to JavaScript -->
-{{ chart_data|json_script:"chart-data" }}
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    // Access chart data from the JSON script tag
-    const chartData = JSON.parse(document.getElementById('chart-data').textContent);
-
-    // Response Rate Chart
-    const responseRateCtx = document.getElementById('responseRateChart').getContext('2d');
-    new Chart(responseRateCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Submitted', 'Not Submitted'],
-            datasets: [{
-                data: [{{ submitted_forms|default:0 }}, {{ total_users|add:'-submitted_forms'|default:0 }}],
-                backgroundColor: ['#28a745', '#dc3545']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'top' },
-                title: { display: true, text: 'Response Rate: {{ response_rate|floatformat:2 }}%' }
+    
+    <!-- jQuery, Popper.js, and Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Chart and Sidebar JavaScript -->
+    <script>
+        // Toggle sidebar functionality
+        document.querySelector('.toggle-sidebar').addEventListener('click', function() {
+            const body = document.body;
+            if (window.innerWidth <= 768) {
+                body.classList.toggle('sidebar-expanded');
+            } else {
+                body.classList.toggle('sidebar-collapsed');
             }
-        }
-    });
-
-    // Forms by Wing Chart
-    const formsByWingCtx = document.getElementById('formsByWingChart').getContext('2d');
-    new Chart(formsByWingCtx, {
-        type: 'bar',
-        data: {
-            labels: chartData.wing_labels || [],
-            datasets: [{
-                label: 'Number of Forms',
-                data: chartData.wing_data || [],
-                backgroundColor: '#28a745'
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true }
+        });
+        
+        // Access chart data from the Django context
+        const chartData = {
+            wing_labels: {{ chart_data.wing_labels|safe|default:"[]" }},
+            wing_data: {{ chart_data.wing_data|safe|default:"[]" }},
+            participating_wing_labels: {{ chart_data.participating_wing_labels|safe|default:"[]" }},
+            participating_wing_data: {{ chart_data.participating_wing_data|safe|default:"[]" }}
+        };
+        
+        // Initialize charts if containers exist and data is available
+        document.addEventListener('DOMContentLoaded', function() {
+            // Forms by Wing Chart
+            const formsByWingCanvas = document.getElementById('formsByWingChart');
+            if (formsByWingCanvas && chartData.wing_labels && chartData.wing_labels.length > 0) {
+                const formsByWingCtx = formsByWingCanvas.getContext('2d');
+                new Chart(formsByWingCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.wing_labels,
+                        datasets: [{
+                            label: 'Number of Forms',
+                            data: chartData.wing_data,
+                            backgroundColor: '#28a745'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Form Submissions by Wing'
+                            }
+                        }
+                    }
+                });
             }
-        }
-    });
-
-    // Forms by Department Chart
-    const formsByDepartmentCtx = document.getElementById('formsByDepartmentChart').getContext('2d');
-    new Chart(formsByDepartmentCtx, {
-        type: 'bar',
-        data: {
-            labels: chartData.dept_labels || [],
-            datasets: [{
-                label: 'Number of Forms',
-                data: chartData.dept_data || [],
-                backgroundColor: '#28a745'
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true }
+            // Participating Users Chart
+            const participatingUsersCanvas = document.getElementById('participatingUsersChart');
+            if (participatingUsersCanvas && chartData.participating_wing_labels && chartData.participating_wing_labels.length > 0) {
+                const participatingUsersCtx = participatingUsersCanvas.getContext('2d');
+                new Chart(participatingUsersCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.participating_wing_labels,
+                        datasets: [{
+                            label: 'Number of Users',  // Changed label to be clearer
+                            data: chartData.participating_wing_data,
+                            backgroundColor: '#fd7e14'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { 
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Users Who Submitted Forms by Wing'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.raw + ' user(s)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
             }
-        }
-    });
-</script>
-{% endblock %}
+            
+            // If no chart data, show fallback content
+            if (!chartData.wing_labels || chartData.wing_labels.length === 0) {
+                console.log("No wing data available for charts");
+            }
+            
+            if (!chartData.participating_wing_labels || chartData.participating_wing_labels.length === 0) {
+                console.log("No participating users data available for charts");
+            }
+        });
+    </script>
+</body>
+</html>

@@ -25,6 +25,15 @@ from django.template.loader import render_to_string
 from datetime import datetime
 from weasyprint import HTML, CSS
 from django.core.paginator import Paginator
+from django.db.models import Count, IntegerField, Q
+from django.db.models.functions import Coalesce
+from django.db.models import Value as V
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+from django.http import HttpResponse
+from io import BytesIO
+import datetime
 
 
 def is_admin(user):
@@ -548,34 +557,47 @@ def download_pdf(request, form_id):
 
 @user_passes_test(is_admin)
 def admin_dashboard(request):
+    # Basic counts
     total_users = User.objects.filter(role='user').count()
     total_admins = User.objects.filter(role='admin').count()
     submitted_forms = RequirementForm.objects.filter(status='submitted').count()
     draft_forms = RequirementForm.objects.filter(status='draft').count()
+    
+    # Calculate response rate
     response_rate = (submitted_forms / total_users) * 100 if total_users > 0 else 0
     
-    # Forms by wing and department
+    # Count participating users (users who submitted at least one form)
+    participating_users = User.objects.annotate(
+        submission_count=Count('requirement_forms', filter=Q(requirement_forms__status='submitted'))
+    ).filter(submission_count__gt=0).count()
+    
+    # Calculate user participation rate
+    user_participation_rate = (participating_users / total_users) * 100 if total_users > 0 else 0
+    
+    # Count participating wings
+    participating_wings = RequirementForm.objects.filter(
+        status='submitted'
+    ).values('user__wing_name').annotate(count=Count('user__wing_name')).count()
+    
+    # Get total wings count for participation rate
+    total_wings = User.objects.values('wing_name').exclude(wing_name='').distinct().count()
+    wing_participation_rate = (participating_wings / total_wings) * 100 if total_wings > 0 else 0
+    
+    # Forms by wing and department for charts
     forms_by_wing = RequirementForm.objects.filter(status='submitted').values('user__wing_name').annotate(count=Count('id'))
     forms_by_department = RequirementForm.objects.filter(status='submitted').values('user__department_name').annotate(count=Count('id'))
     
-    # Process name statistics
-    process_names = RequirementForm.objects.filter(status='submitted').values('process_name').annotate(count=Count('id'))
-    
-    # Prepare data for charts as JSON
+    # Get users by wing for the participating users chart
+    users_by_wing = User.objects.values('wing_name').annotate(
+        participating=Count('id', filter=Q(requirement_forms__status='submitted'), distinct=True)
+    ).filter(participating__gt=0)
+
+    # Prepare data for charts
     wing_labels = [item['user__wing_name'] or 'Unknown' for item in forms_by_wing]
     wing_data = [item['count'] for item in forms_by_wing]
-    
-    dept_labels = [item['user__department_name'] or 'Unknown' for item in forms_by_department]
-    dept_data = [item['count'] for item in forms_by_department]
-    
-    process_labels = [item['process_name'] or 'Unnamed Process' for item in process_names]
-    process_data = [item['count'] for item in process_names]
-    
-    # Count total sections and questions in the system
-    total_sections = FormSection.objects.count()
-    total_questions = FormQuestion.objects.count()
-    active_sections = FormSection.objects.filter(is_active=True).count()
-    active_questions = FormQuestion.objects.filter(is_active=True).count()
+
+    participating_wing_labels = [item['wing_name'] or 'Unknown' for item in users_by_wing]
+    participating_wing_data = [item['participating'] for item in users_by_wing]
     
     context = {
         'total_users': total_users,
@@ -583,17 +605,15 @@ def admin_dashboard(request):
         'submitted_forms': submitted_forms,
         'draft_forms': draft_forms,
         'response_rate': response_rate,
-        'total_sections': total_sections,
-        'total_questions': total_questions,
-        'active_sections': active_sections,
-        'active_questions': active_questions,
+        'participating_users_count': participating_users,
+        'user_participation_rate': user_participation_rate,
+        'participating_wings_count': participating_wings,
+        'wing_participation_rate': wing_participation_rate,
         'chart_data': {
             'wing_labels': wing_labels,
             'wing_data': wing_data,
-            'dept_labels': dept_labels,
-            'dept_data': dept_data,
-            'process_labels': process_labels,
-            'process_data': process_data,
+            'participating_wing_labels': participating_wing_labels, 
+            'participating_wing_data': participating_wing_data
         },
     }
     return render(request, 'requirements_app/admin_dashboard.html', context)
@@ -1366,1490 +1386,6 @@ def confirm_submission(request):
     # Redirect to view submission page
     return redirect('view_submissions')
 
-@user_passes_test(is_admin)
-def reports(request):
-    """View for displaying the reports page"""
-    # Get all unique wings and departments for filtering
-    wings = User.objects.values('wing_name').distinct().exclude(wing_name='').order_by('wing_name')
-    departments = User.objects.values('department_name').distinct().exclude(department_name='').order_by('department_name')
-    
-    # Get all users for the form submissions report
-    users = User.objects.filter(role='user').order_by('username')
-    
-    # Get all unique process names for the process report
-    processes = RequirementForm.objects.filter(status='submitted') \
-                                .values('process_name') \
-                                .distinct() \
-                                .exclude(process_name='') \
-                                .order_by('process_name')
-    
-    context = {
-        'wings': wings,
-        'departments': departments,
-        'users': users,
-        'processes': processes,
-    }
-    
-    return render(request, 'requirements_app/reports.html', context)
-
-@user_passes_test(is_admin)
-def preview_report(request):
-    """View for generating preview data for reports"""
-    report_type = request.GET.get('report_type')
-    
-    try:
-        if report_type == 'all-users':
-            return preview_all_users_report(request)
-        elif report_type == 'regular-users':
-            return preview_regular_users_report(request)
-        elif report_type == 'admin-users':
-            return preview_admin_users_report(request)
-        elif report_type == 'submitted-forms':
-            return preview_submitted_forms_report(request)
-        elif report_type == 'wing-forms':
-            return preview_wing_forms_report(request)
-        elif report_type == 'form-submissions':
-            return preview_form_submissions_report(request)
-        elif report_type == 'department-forms':
-            return preview_department_forms_report(request)
-        elif report_type == 'process-forms':
-            return preview_process_forms_report(request)
-        else:
-            return JsonResponse({'error': 'Invalid report type'})
-    except Exception as e:
-        return JsonResponse({'error': str(e)})
-
-def preview_all_users_report(request):
-    """Generate preview data for all users report"""
-    # Get filter parameters
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    department = request.GET.get('department', '')
-    
-    # Base query
-    query = User.objects.all().order_by('username')
-    
-    # Apply filters
-    if search:
-        query = query.filter(
-            Q(username__icontains=search) | 
-            Q(first_name__icontains=search) | 
-            Q(last_name__icontains=search)
-        )
-    
-    if wing:
-        query = query.filter(wing_name=wing)
-    
-    if department:
-        query = query.filter(department_name=department)
-    
-    # Limit to 50 users for preview
-    query = query[:50]
-    
-    # Generate HTML rows
-    rows = []
-    for user in query:
-        row = f"""
-        <td>{user.username}</td>
-        <td>{user.get_full_name()}</td>
-        <td>{user.get_role_display()}</td>
-        <td>{user.designation}</td>
-        <td>{user.wing_name}</td>
-        <td>{user.department_name}</td>
-        """
-        rows.append(row)
-    
-    return JsonResponse({
-        'rows': rows,
-        'count': len(rows),
-        'total': User.objects.count()
-    })
-
-def preview_regular_users_report(request):
-    """Generate preview data for regular users report"""
-    # Get filter parameters
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    department = request.GET.get('department', '')
-    
-    # Base query for regular users only
-    query = User.objects.filter(role='user').order_by('username')
-    
-    # Apply filters
-    if search:
-        query = query.filter(
-            Q(username__icontains=search) | 
-            Q(first_name__icontains=search) | 
-            Q(last_name__icontains=search)
-        )
-    
-    if wing:
-        query = query.filter(wing_name=wing)
-    
-    if department:
-        query = query.filter(department_name=department)
-    
-    # Limit to 50 users for preview
-    query = query[:50]
-    
-    # Generate HTML rows
-    rows = []
-    for user in query:
-        row = f"""
-        <td>{user.username}</td>
-        <td>{user.get_full_name()}</td>
-        <td>{user.designation}</td>
-        <td>{user.wing_name}</td>
-        <td>{user.department_name}</td>
-        <td>{user.mobile}</td>
-        """
-        rows.append(row)
-    
-    return JsonResponse({
-        'rows': rows,
-        'count': len(rows),
-        'total': User.objects.filter(role='user').count()
-    })
-
-def preview_admin_users_report(request):
-    """Generate preview data for admin users report"""
-    # Get filter parameters
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    
-    # Base query for admin users only
-    query = User.objects.filter(role='admin').order_by('username')
-    
-    # Apply filters
-    if search:
-        query = query.filter(
-            Q(username__icontains=search) | 
-            Q(first_name__icontains=search) | 
-            Q(last_name__icontains=search)
-        )
-    
-    if wing:
-        query = query.filter(wing_name=wing)
-    
-    # Limit to 50 users for preview
-    query = query[:50]
-    
-    # Generate HTML rows
-    rows = []
-    for user in query:
-        row = f"""
-        <td>{user.username}</td>
-        <td>{user.get_full_name()}</td>
-        <td>{user.designation}</td>
-        <td>{user.wing_name}</td>
-        <td>{user.department_name}</td>
-        <td>{user.mobile}</td>
-        """
-        rows.append(row)
-    
-    return JsonResponse({
-        'rows': rows,
-        'count': len(rows),
-        'total': User.objects.filter(role='admin').count()
-    })
-
-def preview_submitted_forms_report(request):
-    """Generate preview data for submitted forms report"""
-    # Get filter parameters
-    user_id = request.GET.get('user', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    # Base query for submitted forms
-    query = RequirementForm.objects.filter(status='submitted').order_by('-submitted_at')
-    
-    # Apply filters
-    if user_id:
-        query = query.filter(user_id=user_id)
-    
-    if process:
-        query = query.filter(process_name__icontains=process)
-    
-    if date_from:
-        query = query.filter(submitted_at__gte=date_from)
-    
-    if date_to:
-        query = query.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Limit to 50 forms for preview
-    query = query[:50]
-    
-    # Generate HTML rows
-    rows = []
-    for form in query:
-        submitted_at = form.submitted_at.strftime('%Y-%m-%d %H:%M') if form.submitted_at else 'N/A'
-        row = f"""
-        <td>{form.user.username}</td>
-        <td>{form.user.get_full_name()}</td>
-        <td>{form.process_name}</td>
-        <td>{submitted_at}</td>
-        <td>{form.user.wing_name}</td>
-        <td>{form.user.department_name}</td>
-        """
-        rows.append(row)
-    
-    return JsonResponse({
-        'rows': rows,
-        'count': len(rows),
-        'total': RequirementForm.objects.filter(status='submitted').count()
-    })
-
-def preview_wing_forms_report(request):
-    """Generate preview data for wing-wise forms report"""
-    # Get filter parameters
-    wing = request.GET.get('wing', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not wing:
-        return JsonResponse({
-            'error': 'Please select a wing',
-            'rows': [],
-            'count': 0
-        })
-    
-    # Base query for submitted forms in the selected wing
-    query = RequirementForm.objects.filter(
-        status='submitted',
-        user__wing_name=wing
-    ).order_by('-submitted_at')
-    
-    # Apply additional filters
-    if process:
-        query = query.filter(process_name__icontains=process)
-    
-    if date_from:
-        query = query.filter(submitted_at__gte=date_from)
-    
-    if date_to:
-        query = query.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Limit to 50 forms for preview
-    query = query[:50]
-    
-    # Generate HTML rows
-    rows = []
-    for form in query:
-        submitted_at = form.submitted_at.strftime('%Y-%m-%d %H:%M') if form.submitted_at else 'N/A'
-        row = f"""
-        <td>{wing}</td>
-        <td>{form.user.username}</td>
-        <td>{form.user.get_full_name()}</td>
-        <td>{form.process_name}</td>
-        <td>{submitted_at}</td>
-        <td>{form.user.department_name}</td>
-        """
-        rows.append(row)
-    
-    return JsonResponse({
-        'rows': rows,
-        'count': len(rows),
-        'total': RequirementForm.objects.filter(status='submitted', user__wing_name=wing).count()
-    })
-
-def preview_form_submissions_report(request):
-    """Generate preview data for form submissions report"""
-    # Get filter parameters
-    user_selection = request.GET.get('user_selection', 'all')
-    specific_user = request.GET.get('specific_user', '')
-    selected_users = request.GET.get('selected_users', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    # Base query for submitted forms
-    query = RequirementForm.objects.filter(status='submitted').order_by('-submitted_at')
-    
-    # Apply user filters based on selection type
-    if user_selection == 'specific' and specific_user:
-        query = query.filter(user_id=specific_user)
-    elif user_selection == 'multiple' and selected_users:
-        user_ids = selected_users.split(',')
-        query = query.filter(user_id__in=user_ids)
-    
-    # Apply other filters
-    if process:
-        query = query.filter(process_name__icontains=process)
-    
-    if date_from:
-        query = query.filter(submitted_at__gte=date_from)
-    
-    if date_to:
-        query = query.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Limit to 50 forms for preview
-    query = query[:50]
-    
-    # Generate HTML rows
-    rows = []
-    for form in query:
-        submitted_at = form.submitted_at.strftime('%Y-%m-%d %H:%M') if form.submitted_at else 'N/A'
-        row = f"""
-        <td>{form.user.username}</td>
-        <td>{form.user.get_full_name()}</td>
-        <td>{form.process_name}</td>
-        <td>{submitted_at}</td>
-        <td>{form.user.wing_name}</td>
-        <td>{form.user.department_name}</td>
-        """
-        rows.append(row)
-    
-    return JsonResponse({
-        'rows': rows,
-        'count': len(rows)
-    })
-
-def preview_department_forms_report(request):
-    """Generate preview data for department-wise forms report"""
-    # Get filter parameters
-    department = request.GET.get('department', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not department:
-        return JsonResponse({
-            'error': 'Please select a department',
-            'rows': [],
-            'count': 0
-        })
-    
-    # Base query for submitted forms in the selected department
-    query = RequirementForm.objects.filter(
-        status='submitted',
-        user__department_name=department
-    ).order_by('-submitted_at')
-    
-    # Apply additional filters
-    if process:
-        query = query.filter(process_name__icontains=process)
-    
-    if date_from:
-        query = query.filter(submitted_at__gte=date_from)
-    
-    if date_to:
-        query = query.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Limit to 50 forms for preview
-    query = query[:50]
-    
-    # Generate HTML rows
-    rows = []
-    for form in query:
-        submitted_at = form.submitted_at.strftime('%Y-%m-%d %H:%M') if form.submitted_at else 'N/A'
-        row = f"""
-        <td>{department}</td>
-        <td>{form.user.username}</td>
-        <td>{form.user.get_full_name()}</td>
-        <td>{form.process_name}</td>
-        <td>{submitted_at}</td>
-        <td>{form.user.wing_name}</td>
-        """
-        rows.append(row)
-    
-    return JsonResponse({
-        'rows': rows,
-        'count': len(rows),
-        'total': RequirementForm.objects.filter(status='submitted', user__department_name=department).count()
-    })
-
-def preview_process_forms_report(request):
-    """Generate preview data for process-wise forms report"""
-    # Get filter parameters
-    process = request.GET.get('process', '')
-    wing = request.GET.get('wing', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not process:
-        return JsonResponse({
-            'error': 'Please select a process',
-            'rows': [],
-            'count': 0
-        })
-    
-    # Base query for submitted forms with the selected process
-    query = RequirementForm.objects.filter(
-        status='submitted',
-        process_name=process
-    ).order_by('-submitted_at')
-    
-    # Apply additional filters
-    if wing:
-        query = query.filter(user__wing_name=wing)
-    
-    if date_from:
-        query = query.filter(submitted_at__gte=date_from)
-    
-    if date_to:
-        query = query.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Limit to 50 forms for preview
-    query = query[:50]
-    
-    # Generate HTML rows
-    rows = []
-    for form in query:
-        submitted_at = form.submitted_at.strftime('%Y-%m-%d %H:%M') if form.submitted_at else 'N/A'
-        row = f"""
-        <td>{process}</td>
-        <td>{form.user.username}</td>
-        <td>{form.user.get_full_name()}</td>
-        <td>{submitted_at}</td>
-        <td>{form.user.wing_name}</td>
-        <td>{form.user.department_name}</td>
-        """
-        rows.append(row)
-    
-    return JsonResponse({
-        'rows': rows,
-        'count': len(rows),
-        'total': RequirementForm.objects.filter(status='submitted', process_name=process).count()
-    })
-
-@user_passes_test(is_admin)
-def generate_report(request):
-    """Generate PDF report based on type and filters"""
-    report_type = request.GET.get('report_type')
-    
-    try:
-        if report_type == 'all-users':
-            return generate_all_users_report(request)
-        elif report_type == 'regular-users':
-            return generate_regular_users_report(request)
-        elif report_type == 'admin-users':
-            return generate_admin_users_report(request)
-        elif report_type == 'submitted-forms':
-            return generate_submitted_forms_report(request)
-        elif report_type == 'wing-forms':
-            return generate_wing_forms_report(request)
-        elif report_type == 'form-submissions':
-            return generate_form_submissions_report(request)
-        elif report_type == 'department-forms':
-            return generate_department_forms_report(request)
-        elif report_type == 'process-forms':
-            return generate_process_forms_report(request)
-        else:
-            messages.error(request, 'Invalid report type')
-            return redirect('reports')
-    except Exception as e:
-        messages.error(request, f'Error generating report: {str(e)}')
-        return redirect('reports')
-
-def preview_all_users_report(request):
-    """Preview data for all users report"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    department = request.GET.get('department', '')
-    
-    # Query users with filters
-    users = User.objects.all().order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    if department:
-        users = users.filter(department_name=department)
-    
-    # Limit to preview size
-    users = users[:25]
-    
-    # Format rows for table
-    rows = []
-    for user in users:
-        rows.append(
-            f'<td>{user.username}</td>' +
-            f'<td>{user.get_full_name()}</td>' +
-            f'<td>{user.get_role_display()}</td>' +
-            f'<td>{user.designation}</td>' +
-            f'<td>{user.wing_name}</td>' +
-            f'<td>{user.department_name}</td>'
-        )
-    
-    return JsonResponse({'rows': rows})
-
-def preview_regular_users_report(request):
-    """Preview data for regular users report"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    department = request.GET.get('department', '')
-    
-    # Query regular users with filters
-    users = User.objects.filter(role='user').order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    if department:
-        users = users.filter(department_name=department)
-    
-    # Limit to preview size
-    users = users[:25]
-    
-    # Format rows for table
-    rows = []
-    for user in users:
-        rows.append(
-            f'<td>{user.username}</td>' +
-            f'<td>{user.get_full_name()}</td>' +
-            f'<td>{user.designation}</td>' +
-            f'<td>{user.wing_name}</td>' +
-            f'<td>{user.department_name}</td>' +
-            f'<td>{user.mobile}</td>'
-        )
-    
-    return JsonResponse({'rows': rows})
-
-def preview_admin_users_report(request):
-    """Preview data for admin users report"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    
-    # Query admin users with filters
-    users = User.objects.filter(role='admin').order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    
-    # Limit to preview size
-    users = users[:25]
-    
-    # Format rows for table
-    rows = []
-    for user in users:
-        rows.append(
-            f'<td>{user.username}</td>' +
-            f'<td>{user.get_full_name()}</td>' +
-            f'<td>{user.designation}</td>' +
-            f'<td>{user.wing_name}</td>' +
-            f'<td>{user.department_name}</td>' +
-            f'<td>{user.mobile}</td>'
-        )
-    
-    return JsonResponse({'rows': rows})
-
-def preview_submitted_forms_report(request):
-    """Preview data for submitted forms report"""
-    user_id = request.GET.get('user', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    # Query submitted forms with filters
-    forms = RequirementForm.objects.filter(status='submitted').order_by('-submitted_at')
-    
-    if user_id:
-        forms = forms.filter(user_id=user_id)
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Limit to preview size
-    forms = forms[:25]
-    
-    # Format rows for table
-    rows = []
-    for form in forms:
-        rows.append(
-            f'<td>{form.user.username}</td>' +
-            f'<td>{form.user.get_full_name()}</td>' +
-            f'<td>{form.process_name}</td>' +
-            f'<td>{form.submitted_at.strftime("%Y-%m-%d %H:%M")}</td>' +
-            f'<td>{form.user.wing_name}</td>' +
-            f'<td>{form.user.department_name}</td>'
-        )
-    
-    return JsonResponse({'rows': rows})
-
-def preview_wing_forms_report(request):
-    """Preview data for wing-wise forms report"""
-    wing = request.GET.get('wing', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not wing:
-        return JsonResponse({'error': 'Wing selection is required'})
-    
-    # Query submitted forms for this wing with filters
-    forms = RequirementForm.objects.filter(status='submitted', user__wing_name=wing).order_by('-submitted_at')
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Limit to preview size
-    forms = forms[:25]
-    
-    # Format rows for table
-    rows = []
-    for form in forms:
-        rows.append(
-            f'<td>{form.user.wing_name}</td>' +
-            f'<td>{form.user.username}</td>' +
-            f'<td>{form.user.get_full_name()}</td>' +
-            f'<td>{form.process_name}</td>' +
-            f'<td>{form.submitted_at.strftime("%Y-%m-%d %H:%M")}</td>' +
-            f'<td>{form.user.department_name}</td>'
-        )
-    
-    return JsonResponse({'rows': rows})
-
-def preview_form_submissions_report(request):
-    """Preview data for form submissions report"""
-    user_selection = request.GET.get('user_selection', 'all')
-    specific_user = request.GET.get('specific_user', '')
-    selected_users = request.GET.get('selected_users', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    process = request.GET.get('process', '')
-    
-    # Query submitted forms based on user selection
-    forms = RequirementForm.objects.filter(status='submitted').order_by('-submitted_at')
-    
-    if user_selection == 'specific' and specific_user:
-        forms = forms.filter(user_id=specific_user)
-    elif user_selection == 'multiple' and selected_users:
-        user_ids = selected_users.split(',')
-        forms = forms.filter(user_id__in=user_ids)
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Limit to preview size
-    forms = forms[:25]
-    
-    # Format rows for table
-    rows = []
-    for form in forms:
-        rows.append(
-            f'<td>{form.user.username}</td>' +
-            f'<td>{form.user.get_full_name()}</td>' +
-            f'<td>{form.process_name}</td>' +
-            f'<td>{form.submitted_at.strftime("%Y-%m-%d %H:%M")}</td>' +
-            f'<td>{form.user.wing_name}</td>' +
-            f'<td>{form.user.department_name}</td>'
-        )
-    
-    return JsonResponse({'rows': rows})
-
-def preview_department_forms_report(request):
-    """Preview data for department-wise forms report"""
-    department = request.GET.get('department', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not department:
-        return JsonResponse({'error': 'Department selection is required'})
-    
-    # Query submitted forms for this department with filters
-    forms = RequirementForm.objects.filter(status='submitted', user__department_name=department).order_by('-submitted_at')
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Limit to preview size
-    forms = forms[:25]
-    
-    # Format rows for table
-    rows = []
-    for form in forms:
-        rows.append(
-            f'<td>{form.user.department_name}</td>' +
-            f'<td>{form.user.username}</td>' +
-            f'<td>{form.user.get_full_name()}</td>' +
-            f'<td>{form.process_name}</td>' +
-            f'<td>{form.submitted_at.strftime("%Y-%m-%d %H:%M")}</td>' +
-            f'<td>{form.user.wing_name}</td>'
-        )
-    
-    return JsonResponse({'rows': rows})
-
-def preview_process_forms_report(request):
-    """Preview data for process-wise forms report"""
-    process = request.GET.get('process', '')
-    wing = request.GET.get('wing', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not process:
-        return JsonResponse({'error': 'Process selection is required'})
-    
-    # Query submitted forms for this process with filters
-    forms = RequirementForm.objects.filter(status='submitted', process_name=process).order_by('-submitted_at')
-    
-    if wing:
-        forms = forms.filter(user__wing_name=wing)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Limit to preview size
-    forms = forms[:25]
-    
-    # Format rows for table
-    rows = []
-    for form in forms:
-        rows.append(
-            f'<td>{form.process_name}</td>' +
-            f'<td>{form.user.username}</td>' +
-            f'<td>{form.user.get_full_name()}</td>' +
-            f'<td>{form.submitted_at.strftime("%Y-%m-%d %H:%M")}</td>' +
-            f'<td>{form.user.wing_name}</td>' +
-            f'<td>{form.user.department_name}</td>'
-        )
-    
-    return JsonResponse({'rows': rows})
-
-def generate_all_users_pdf(request):
-    """Generate PDF report for all users"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    department = request.GET.get('department', '')
-    
-    # Query users with filters
-    users = User.objects.all().order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    if department:
-        users = users.filter(department_name=department)
-    
-    # Get logo as data URI
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'users': users,
-        'report_title': 'All Users Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'search': search,
-            'wing': wing,
-            'department': department
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/users_report_template.html', 
-        context, 
-        filename="all_users_report.pdf"
-    )
-
-def generate_regular_users_pdf(request):
-    """Generate PDF report for regular users"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    department = request.GET.get('department', '')
-    
-    # Query regular users with filters
-    users = User.objects.filter(role='user').order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    if department:
-        users = users.filter(department_name=department)
-    
-    # Get logo as data URI
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'users': users,
-        'report_title': 'Regular Users Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'search': search,
-            'wing': wing,
-            'department': department
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/users_report_template.html', 
-        context, 
-        filename="regular_users_report.pdf"
-    )
-
-def generate_admin_users_pdf(request):
-    """Generate PDF report for admin users"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    
-    # Query admin users with filters
-    users = User.objects.filter(role='admin').order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    
-    # Get logo as data URI
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'users': users,
-        'report_title': 'Admin Users Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'search': search,
-            'wing': wing
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/users_report_template.html', 
-        context, 
-        filename="admin_users_report.pdf"
-    )
-
-def generate_submitted_forms_pdf(request):
-    """Generate PDF report for submitted forms"""
-    user_id = request.GET.get('user', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    # Query submitted forms with filters
-    forms = RequirementForm.objects.filter(status='submitted').order_by('-submitted_at')
-    
-    if user_id:
-        forms = forms.filter(user_id=user_id)
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Get logo as data URI
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': 'Submitted Forms Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'user': User.objects.get(id=user_id).username if user_id else 'All',
-            'process': process,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/forms_report_template.html', 
-        context, 
-        filename="submitted_forms_report.pdf"
-    )
-
-def generate_wing_forms_pdf(request):
-    """Generate PDF report for wing-wise forms"""
-    wing = request.GET.get('wing', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not wing:
-        messages.error(request, "Wing selection is required")
-        return redirect('reports')
-    
-    # Query submitted forms for this wing with filters
-    forms = RequirementForm.objects.filter(status='submitted', user__wing_name=wing).order_by('-submitted_at')
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Get logo as data URI
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': f'{wing} Wing Forms Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'wing': wing,
-            'process': process,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/wing_forms_report_template.html', 
-        context, 
-        filename=f"{wing}_wing_forms_report.pdf"
-    )
-
-def generate_form_submissions_pdf(request):
-    """Generate PDF report for form submissions"""
-    user_selection = request.GET.get('user_selection', 'all')
-    specific_user = request.GET.get('specific_user', '')
-    selected_users = request.GET.get('selected_users', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    process = request.GET.get('process', '')
-    
-    # Query submitted forms based on user selection
-    forms = RequirementForm.objects.filter(status='submitted').order_by('-submitted_at')
-    
-    if user_selection == 'specific' and specific_user:
-        forms = forms.filter(user_id=specific_user)
-    elif user_selection == 'multiple' and selected_users:
-        user_ids = selected_users.split(',')
-        forms = forms.filter(user_id__in=user_ids)
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Get logo as data URI
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': 'Form Submissions Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'user_selection': user_selection,
-            'process': process,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/forms_report_template.html', 
-        context, 
-        filename="form_submissions_report.pdf"
-    )
-
-def generate_department_forms_pdf(request):
-    """Generate PDF report for department-wise forms"""
-    department = request.GET.get('department', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not department:
-        messages.error(request, "Department selection is required")
-        return redirect('reports')
-    
-    # Query submitted forms for this department with filters
-    forms = RequirementForm.objects.filter(status='submitted', user__department_name=department).order_by('-submitted_at')
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Get logo as data URI
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': f'{department} Department Forms Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'department': department,
-            'process': process,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/department_forms_report_template.html', 
-        context, 
-        filename=f"{department}_department_forms_report.pdf"
-    )
-
-def generate_process_forms_pdf(request):
-    """Generate PDF report for process-wise forms"""
-    process = request.GET.get('process', '')
-    wing = request.GET.get('wing', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not process:
-        messages.error(request, "Process selection is required")
-        return redirect('reports')
-    
-    # Query submitted forms for this process with filters
-    forms = RequirementForm.objects.filter(status='submitted', process_name=process).order_by('-submitted_at')
-    
-    if wing:
-        forms = forms.filter(user__wing_name=wing)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to)
-    
-    # Get logo as data URI
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': f'{process} Process Forms Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'process': process,
-            'wing': wing,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/process_forms_report_template.html', 
-        context, 
-        filename=f"{process}_process_forms_report.pdf"
-    )
-
-@user_passes_test(is_admin)
-def generate_all_users_report(request):
-    """Generate PDF report for all users"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    department = request.GET.get('department', '')
-    
-    # Query users with filters
-    users = User.objects.all().order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    if department:
-        users = users.filter(department_name=department)
-    
-    # Get logo as data URI
-    from .utils import get_static_file_as_data_uri
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'users': users,
-        'report_title': 'All Users Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'search': search,
-            'wing': wing,
-            'department': department
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/users_report_template.html', 
-        context, 
-        filename="all_users_report.pdf"
-    )
-
-@user_passes_test(is_admin)
-def generate_regular_users_report(request):
-    """Generate PDF report for regular users"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    department = request.GET.get('department', '')
-    
-    # Query regular users with filters
-    users = User.objects.filter(role='user').order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    if department:
-        users = users.filter(department_name=department)
-    
-    # Get logo as data URI
-    from .utils import get_static_file_as_data_uri
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'users': users,
-        'report_title': 'Regular Users Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'search': search,
-            'wing': wing,
-            'department': department
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/users_report_template.html', 
-        context, 
-        filename="regular_users_report.pdf"
-    )
-
-@user_passes_test(is_admin)
-def generate_admin_users_report(request):
-    """Generate PDF report for admin users"""
-    search = request.GET.get('search', '')
-    wing = request.GET.get('wing', '')
-    
-    # Query admin users with filters
-    users = User.objects.filter(role='admin').order_by('username')
-    
-    if search:
-        users = users.filter(Q(username__icontains=search) | 
-                            Q(first_name__icontains=search) | 
-                            Q(last_name__icontains=search))
-    if wing:
-        users = users.filter(wing_name=wing)
-    
-    # Get logo as data URI
-    from .utils import get_static_file_as_data_uri
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'users': users,
-        'report_title': 'Admin Users Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'search': search,
-            'wing': wing
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/users_report_template.html', 
-        context, 
-        filename="admin_users_report.pdf"
-    )
-
-@user_passes_test(is_admin)
-def generate_submitted_forms_report(request):
-    """Generate PDF report for submitted forms"""
-    user_id = request.GET.get('user', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    # Query submitted forms with filters
-    forms = RequirementForm.objects.filter(status='submitted').order_by('-submitted_at')
-    
-    if user_id:
-        forms = forms.filter(user_id=user_id)
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Get logo as data URI
-    from .utils import get_static_file_as_data_uri
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare user name for filter display
-    username = 'All'
-    if user_id:
-        try:
-            user = User.objects.get(id=user_id)
-            username = user.username
-        except User.DoesNotExist:
-            pass
-            
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': 'Submitted Forms Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'user': username,
-            'process': process,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/forms_report_template.html', 
-        context, 
-        filename="submitted_forms_report.pdf"
-    )
-
-@user_passes_test(is_admin)
-def generate_wing_forms_report(request):
-    """Generate PDF report for wing-wise forms"""
-    wing = request.GET.get('wing', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not wing:
-        messages.error(request, "Wing selection is required")
-        return redirect('reports')
-    
-    # Query submitted forms for this wing with filters
-    forms = RequirementForm.objects.filter(status='submitted', user__wing_name=wing).order_by('-submitted_at')
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Get logo as data URI
-    from .utils import get_static_file_as_data_uri
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': f'{wing} Wing Forms Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'wing': wing,
-            'process': process,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/wing_forms_report_template.html', 
-        context, 
-        filename=f"{wing}_wing_forms_report.pdf"
-    )
-
-@user_passes_test(is_admin)
-def generate_form_submissions_report(request):
-    """Generate PDF report for form submissions"""
-    user_selection = request.GET.get('user_selection', 'all')
-    specific_user = request.GET.get('specific_user', '')
-    selected_users = request.GET.get('selected_users', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    process = request.GET.get('process', '')
-    
-    # Query submitted forms based on user selection
-    forms = RequirementForm.objects.filter(status='submitted').order_by('-submitted_at')
-    
-    if user_selection == 'specific' and specific_user:
-        forms = forms.filter(user_id=specific_user)
-    elif user_selection == 'multiple' and selected_users:
-        user_ids = selected_users.split(',')
-        forms = forms.filter(user_id__in=user_ids)
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Get logo as data URI
-    from .utils import get_static_file_as_data_uri
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': 'Form Submissions Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'user_selection': user_selection,
-            'process': process,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/forms_report_template.html', 
-        context, 
-        filename="form_submissions_report.pdf"
-    )
-
-@user_passes_test(is_admin)
-def generate_department_forms_report(request):
-    """Generate PDF report for department-wise forms"""
-    department = request.GET.get('department', '')
-    process = request.GET.get('process', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not department:
-        messages.error(request, "Department selection is required")
-        return redirect('reports')
-    
-    # Query submitted forms for this department with filters
-    forms = RequirementForm.objects.filter(status='submitted', user__department_name=department).order_by('-submitted_at')
-    
-    if process:
-        forms = forms.filter(process_name__icontains=process)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Get logo as data URI
-    from .utils import get_static_file_as_data_uri
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': f'{department} Department Forms Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'department': department,
-            'process': process,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/department_forms_report_template.html', 
-        context, 
-        filename=f"{department}_department_forms_report.pdf"
-    )
-
-@user_passes_test(is_admin)
-def generate_process_forms_report(request):
-    """Generate PDF report for process-wise forms"""
-    process = request.GET.get('process', '')
-    wing = request.GET.get('wing', '')
-    date_from = request.GET.get('date_from', '')
-    date_to = request.GET.get('date_to', '')
-    
-    if not process:
-        messages.error(request, "Process selection is required")
-        return redirect('reports')
-    
-    # Query submitted forms for this process with filters
-    forms = RequirementForm.objects.filter(status='submitted', process_name=process).order_by('-submitted_at')
-    
-    if wing:
-        forms = forms.filter(user__wing_name=wing)
-    if date_from:
-        forms = forms.filter(submitted_at__gte=date_from)
-    if date_to:
-        forms = forms.filter(submitted_at__lte=date_to + ' 23:59:59')
-    
-    # Get logo as data URI
-    from .utils import get_static_file_as_data_uri
-    logo_data_uri = get_static_file_as_data_uri('images/parliament_logo.png')
-    
-    # Prepare context data
-    context = {
-        'forms': forms,
-        'report_title': f'{process} Process Forms Report',
-        'logo_data_uri': logo_data_uri,
-        'current_date': timezone.now(),
-        'filters': {
-            'process': process,
-            'wing': wing,
-            'date_from': date_from,
-            'date_to': date_to
-        }
-    }
-    
-    # Generate PDF
-    return generate_report_pdf(
-        'requirements_app/pdf/process_forms_report_template.html', 
-        context, 
-        filename=f"{process}_process_forms_report.pdf"
-    )
 
 def generate_report_pdf(template_path, context, filename="report.pdf"):
     """Generate PDF report from a template and context data"""
@@ -3123,5 +1659,299 @@ def download_review_pdf(request):
     # Create HTTP response with PDF
     response = HttpResponse(pdf_content, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="requirement_form_preview_{request.user.username}.pdf"'
+    
+    return response
+
+
+@user_passes_test(is_admin)
+def reports(request):
+    context = {}
+    
+    # Get report type from request
+    report_type = request.GET.get('report_type', '')
+    context['report_type'] = report_type
+    
+    # 1. System User Reports
+    if report_type == 'users':
+        user_role = request.GET.get('user_role', 'all')
+        context['user_role'] = user_role
+        
+        # Query users based on role
+        if user_role == 'admin':
+            user_report = User.objects.filter(role='admin').order_by('username')
+            context['user_report_title'] = 'Admin Users List'
+        elif user_role == 'user':
+            user_report = User.objects.filter(role='user').order_by('username')
+            context['user_report_title'] = 'Regular Users List'
+        else:
+            user_report = User.objects.all().order_by('role', 'username')
+            context['user_report_title'] = 'All System Users List'
+        
+        context['user_report'] = user_report
+    
+    # 2. Submitted Forms Reports
+    elif report_type == 'forms':
+        form_filter_type = request.GET.get('form_filter_type', 'wing')
+        context['form_filter_type'] = form_filter_type
+        
+        # Get all available wings for dropdown
+        available_wings = User.objects.exclude(wing_name='').values('wing_name').distinct().order_by('wing_name')
+        context['available_wings'] = available_wings
+        
+        # A. Wing-wise report
+        if form_filter_type == 'wing':
+            selected_wings = request.GET.getlist('selected_wings', [])
+            context['selected_wings'] = selected_wings
+            
+            # Query forms based on selected wings
+            if not selected_wings or 'all' in selected_wings:
+                forms_report = RequirementForm.objects.filter(status='submitted').order_by('user__wing_name', '-submitted_at')
+                context['forms_report_title'] = 'All Wings - Submitted Forms Report'
+            else:
+                forms_report = RequirementForm.objects.filter(status='submitted', user__wing_name__in=selected_wings).order_by('user__wing_name', '-submitted_at')
+                context['forms_report_title'] = f"Selected Wings - Submitted Forms Report ({', '.join(selected_wings)})"
+            
+            context['forms_report'] = forms_report
+        
+        # B. User-wise report
+        elif form_filter_type == 'user':
+            selected_users = request.GET.get('selected_users', 'all')
+            context['selected_users'] = selected_users
+            
+            if selected_users == 'all':
+                forms_report = RequirementForm.objects.filter(status='submitted').order_by('user__username', '-submitted_at')
+                context['forms_report_title'] = 'All Users - Submitted Forms Report'
+            elif selected_users == 'custom':
+                custom_user_ids = request.GET.get('custom_user_ids', '')
+                context['custom_user_ids'] = custom_user_ids
+                
+                if custom_user_ids:
+                    user_id_list = [user_id.strip() for user_id in custom_user_ids.split(',')]
+                    forms_report = RequirementForm.objects.filter(status='submitted', user__username__in=user_id_list).order_by('user__username', '-submitted_at')
+                    context['forms_report_title'] = f"Selected Users - Submitted Forms Report ({custom_user_ids})"
+                else:
+                    forms_report = []
+                    context['forms_report_title'] = 'No Users Selected'
+            
+            context['forms_report'] = forms_report
+        
+        # C. Process-wise report
+        elif form_filter_type == 'process':
+            process_name = request.GET.get('process_name', '')
+            context['process_name'] = process_name
+            
+            if process_name:
+                process_list = [p.strip() for p in process_name.split(',')]
+                if len(process_list) == 1:
+                    forms_report = RequirementForm.objects.filter(status='submitted', process_name__icontains=process_list[0]).order_by('process_name', '-submitted_at')
+                    context['forms_report_title'] = f"Process: {process_name} - Submitted Forms Report"
+                else:
+                    q_objects = Q()
+                    for process in process_list:
+                        q_objects |= Q(process_name__icontains=process)
+                    forms_report = RequirementForm.objects.filter(status='submitted').filter(q_objects).order_by('process_name', '-submitted_at')
+                    context['forms_report_title'] = f"Multiple Processes - Submitted Forms Report ({process_name})"
+            else:
+                forms_report = []
+                context['forms_report_title'] = 'No Process Selected'
+            
+            context['forms_report'] = forms_report
+    
+    # 3. Counting Based Reports
+    elif report_type == 'counts':
+        count_report_type = request.GET.get('count_report_type', 'wing_count')
+        context['count_report_type'] = count_report_type
+        
+        # A. Wing-wise count report
+        if count_report_type == 'wing_count':
+            wing_count_report = RequirementForm.objects.filter(status='submitted').values('user__wing_name').annotate(count=Count('id')).order_by('user__wing_name')
+            total_requirements = RequirementForm.objects.filter(status='submitted').count()
+            
+            context['wing_count_report'] = wing_count_report
+            context['total_requirements'] = total_requirements
+        
+        # B. User participation count report
+        elif count_report_type == 'user_participation':
+            participation_status = request.GET.get('participation_status', 'all')
+            context['participation_status'] = participation_status
+            
+            # Annotate users with submission count
+            users = User.objects.filter(role='user').annotate(
+                submission_count=Coalesce(Count('requirement_forms', filter=Q(requirement_forms__status='submitted')), V(0))
+            )
+            
+            # Filter based on participation status
+            if participation_status == 'submitted':
+                users = users.filter(submission_count__gt=0)
+            elif participation_status == 'not_submitted':
+                users = users.filter(submission_count=0)
+            
+            # Sort users by wing name and username
+            users = users.order_by('wing_name', 'username')
+            
+            context['user_participation_report'] = users
+    
+    return render(request, 'requirements_app/reports.html', context)
+
+# this function for Excel download
+@user_passes_test(is_admin)
+def download_excel_report(request):
+    # Get user IDs from the request
+    user_ids = request.GET.get('user_ids', '')
+    if not user_ids:
+        messages.error(request, "No users selected for report generation")
+        return redirect('reports')
+    
+    # Parse user IDs
+    user_id_list = [uid.strip() for uid in user_ids.split(',')]
+    
+    # Create a new workbook and select the active worksheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "E-Parliament Requirements"
+    
+    # Define styles
+    header_font = Font(name='Calibri', bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='28A745', end_color='28A745', fill_type='solid')
+    header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    
+    border = Border(
+        left=Side(style='thin', color='000000'),
+        right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='thin', color='000000')
+    )
+    
+    # Set column widths
+    column_widths = {
+        'A': 5,   # SL. No.
+        'B': 12,  # ID
+        'C': 20,  # Name
+        'D': 15,  # Wing
+        'E': 20,  # Process Name
+        'F': 30,  # Process Description
+        'G': 20,  # Process Steps
+        'H': 10,  # Time Taken
+        'I': 10,  # People Involved
+        'J': 10,  # Process Steps Count
+        'K': 30,  # Expected Features
+        'L': 10,  # Internal Connectivity
+        'M': 30,  # Internal Connectivity Details
+        'N': 10,  # External Connectivity
+        'O': 30,  # Expected Reports
+        'P': 30,  # Expected Analysis
+        'Q': 30,  # Additional Comments
+        'R': 15,  # Submitted At
+    }
+    
+    for col, width in column_widths.items():
+        ws.column_dimensions[col].width = width
+    
+    # Define headers
+    headers = [
+        "SL.", "ID", "Name", "Wing", 
+        "Process Name", "Process Description", "Process Steps", 
+        "Time Taken", "People Involved", "Steps Count",
+        "Expected Features", "Internal Connectivity", "Internal Connectivity Details", 
+        "External Connectivity", "Expected Reports", "Expected Analysis",
+        "Additional Comments", "Submitted At"
+    ]
+    
+    # Write headers
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    # Get the form data for the selected users
+    if 'all' in user_id_list:
+        forms = RequirementForm.objects.filter(status='submitted').order_by('user__username')
+    else:
+        forms = RequirementForm.objects.filter(
+            status='submitted', 
+            user__username__in=user_id_list
+        ).order_by('user__username')
+    
+    # Write data rows
+    row_num = 2
+    for i, form in enumerate(forms, 1):
+        # Get additional question responses
+        additional_comments = ""
+        try:
+            # Find a response that might contain additional comments
+            # This is just a placeholder - adjust based on your actual data structure
+            additional_response = QuestionResponse.objects.filter(
+                form=form,
+                question__question_text__icontains='comment'
+            ).first()
+            
+            if additional_response:
+                additional_comments = additional_response.response_text
+        except:
+            pass
+        
+        # Format process steps data
+        process_steps_text = ""
+        if form.process_steps_detail:
+            try:
+                if isinstance(form.process_steps_detail, list):
+                    steps = []
+                    for step in form.process_steps_detail:
+                        if isinstance(step, dict) and 'description' in step:
+                            steps.append(f"{step.get('number', '')}: {step['description']}")
+                        elif isinstance(step, str):
+                            steps.append(step)
+                    process_steps_text = "\n".join(steps)
+            except:
+                process_steps_text = str(form.process_steps_detail)
+        
+        # Row data
+        row = [
+            i,  # SL.
+            form.user.username,  # ID
+            form.user.get_full_name(),  # Name
+            form.user.wing_name,  # Wing
+            form.process_name,  # Process Name
+            form.process_description,  # Process Description
+            process_steps_text,  # Process Steps
+            form.time_taken,  # Time Taken
+            form.people_involved,  # People Involved
+            form.process_steps,  # Steps Count
+            form.expected_features,  # Expected Features
+            form.get_internal_connectivity_display(),  # Internal Connectivity
+            form.internal_connectivity_details if form.internal_connectivity == 'yes' else "",  # Internal Connectivity Details
+            form.get_external_connectivity_display(),  # External Connectivity
+            form.expected_reports,  # Expected Reports
+            form.expected_analysis,  # Expected Analysis
+            additional_comments,  # Additional Comments
+            form.submitted_at.strftime('%Y-%m-%d %H:%M') if form.submitted_at else ""  # Submitted At
+        ]
+        
+        # Write row data
+        for col_num, cell_value in enumerate(row, 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.value = cell_value
+            cell.border = border
+            
+            # Set wrap text for text columns
+            if col_num in [5, 6, 7, 11, 13, 15, 16, 17]:
+                cell.alignment = Alignment(wrap_text=True, vertical='top')
+        
+        row_num += 1
+    
+    # Freeze the header row
+    ws.freeze_panes = 'A2'
+    
+    # Create response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=E-Parliament_Requirements_Report.xlsx'
+    
+    # Save the workbook to the response
+    wb.save(response)
     
     return response

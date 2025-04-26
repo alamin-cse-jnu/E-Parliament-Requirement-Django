@@ -51,6 +51,5 @@ urlpatterns = [
 
     # Reports routes
     path('reports/', views.reports, name='reports'),
-    path('preview-report/', views.preview_report, name='preview_report'),
-    path('generate-report/', views.generate_report, name='generate_report'),
+    path('download-excel-report/', views.download_excel_report, name='download_excel_report'),
 ]
