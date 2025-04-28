@@ -174,6 +174,10 @@
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h5>{{ user_report_title }}</h5>
                                 <div>
+                                    <a href="{% url 'download_pdf_report' %}?report_type=users&user_role={{ user_role }}" 
+                                        class="btn btn-sm btn-primary me-2 no-print">
+                                            <i class="fas fa-file-pdf me-1"></i> Download PDF
+                                    </a>
                                     <button class="btn btn-sm btn-outline-success me-2 no-print copy-to-excel" data-target="userTable">
                                         <i class="fas fa-copy me-1"></i> Copy IDs to Excel Form
                                     </button>
@@ -337,6 +341,10 @@
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h5>{{ forms_report_title }}</h5>
                                 <div>
+                                    <a href="{% url 'download_pdf_report' %}?report_type=forms&form_filter_type={{ form_filter_type }}{% if selected_wings %}&selected_wings={% for wing in selected_wings %}{{ wing }}{% if not forloop.last %},{% endif %}{% endfor %}{% endif %}{% if selected_users %}&selected_users={{ selected_users }}{% endif %}{% if custom_user_ids %}&custom_user_ids={{ custom_user_ids }}{% endif %}{% if process_name %}&process_name={{ process_name }}{% endif %}"
+                                        class="btn btn-sm btn-primary me-2 no-print">
+                                            <i class="fas fa-file-pdf me-1"></i> Download PDF
+                                        </a>
                                     <button class="btn btn-sm btn-outline-success me-2 no-print copy-to-excel" data-target="formsTable">
                                         <i class="fas fa-copy me-1"></i> Copy IDs to Excel Form
                                     </button>
@@ -446,6 +454,10 @@
                         <div class="report-result">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h5>Wing-Wise Requirement Count</h5>
+                                <a href="{% url 'download_pdf_report' %}?report_type=counts&count_report_type=wing_count" 
+                                    class="btn btn-sm btn-primary me-2 no-print">
+                                        <i class="fas fa-file-pdf me-1"></i> Download PDF
+                                    </a>
                                 <button class="btn btn-sm btn-outline-secondary print-btn no-print" onclick="window.print()">
                                     <i class="fas fa-print me-1"></i> Print
                                 </button>
@@ -507,6 +519,10 @@
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h5>User Participation List</h5>
                                 <div>
+                                    <a href="{% url 'download_pdf_report' %}?report_type=counts&count_report_type=user_participation&participation_status={{ participation_status }}" 
+                                        class="btn btn-sm btn-primary me-2 no-print">
+                                            <i class="fas fa-file-pdf me-1"></i> Download PDF
+                                    </a>
                                     <button class="btn btn-sm btn-outline-success me-2 no-print copy-to-excel" data-target="userParticipationTable">
                                         <i class="fas fa-copy me-1"></i> Copy IDs to Excel Form
                                     </button>

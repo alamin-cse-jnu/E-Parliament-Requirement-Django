@@ -1,5 +1,3 @@
-# utils.py
-
 from django.template.loader import render_to_string
 from django.http import HttpResponse
 from weasyprint import HTML, CSS
@@ -10,6 +8,7 @@ from datetime import datetime
 import base64
 from django.templatetags.static import static
 from django.contrib.staticfiles import finders
+from django.utils import timezone
 
 def get_static_file_as_data_uri(path):
     """Convert a static file to a data URI for embedding in HTML"""
@@ -173,32 +172,63 @@ def generate_user_list_pdf():
     
     return pdf_content
 
-# Add these functions to utils.py
 
-def generate_report_pdf(template_name, context_data, filename="report.pdf"):
-    """Generic function to generate PDF from a template"""
-    html_string = render_to_string(template_name, context_data)
+# def generate_report_pdf(template_name, context_data, filename="report.pdf"):
+#     """Generic function to generate PDF from a template"""
+#     html_string = render_to_string(template_name, context_data)
     
-    # Create a temporary file
-    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as output:
-        # Generate PDF
-        HTML(string=html_string).write_pdf(
-            output,
-            stylesheets=[
-                CSS(string='@page { size: A4; margin: 1cm }')
-            ]
-        )
-        output_path = output.name
+#     # Create a temporary file
+#     with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as output:
+#         # Generate PDF
+#         HTML(string=html_string).write_pdf(
+#             output,
+#             stylesheets=[
+#                 CSS(string='@page { size: A4; margin: 1cm }')
+#             ]
+#         )
+#         output_path = output.name
     
-    # Read the generated PDF
-    with open(output_path, 'rb') as f:
-        pdf_content = f.read()
+#     # Read the generated PDF
+#     with open(output_path, 'rb') as f:
+#         pdf_content = f.read()
     
-    # Clean up the temporary file
-    os.unlink(output_path)
+#     # Clean up the temporary file
+#     os.unlink(output_path)
     
-    # Create HTTP response with PDF
-    response = HttpResponse(pdf_content, content_type='application/pdf')
+#     # Create HTTP response with PDF
+#     response = HttpResponse(pdf_content, content_type='application/pdf')
+#     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+#     return response
+
+# Add this function to your utils.py file
+
+
+def generate_pdf_report(request, template_name, context_data, filename):
+    """A complete rewrite of the PDF generation function"""
+    
+    # Try to find the logo file directly
+    logo_path = os.path.join(settings.BASE_DIR, 'requirements_app', 'static', 'images', 'parliament_logo.png')
+    
+    # Create data URI for the logo
+    logo_data_uri = None
+    if os.path.exists(logo_path):
+        with open(logo_path, 'rb') as f:
+            logo_data = base64.b64encode(f.read()).decode('utf-8')
+            logo_data_uri = f"data:image/png;base64,{logo_data}"
+    
+    # Add to context
+    context_data['logo_data_uri'] = logo_data_uri
+    context_data['current_date'] = datetime.datetime.now().strftime('%B %d, %Y')
+    
+    # Render the template
+    html = render_to_string(template_name, context_data)
+    
+    # Generate PDF
+    pdf_file = HTML(string=html).write_pdf()
+    
+    # Create response
+    response = HttpResponse(pdf_file, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response

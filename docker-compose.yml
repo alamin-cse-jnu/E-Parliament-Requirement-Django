@@ -20,8 +20,7 @@ services:
       - DB_PORT=3306
       - SECRET_KEY=change_this_to_a_secure_random_key
       - DEBUG=False
-      - ALLOWED_HOSTS=localhost,127.0.0.1
-
+      - ALLOWED_HOSTS=llocalhost,127.0.0.1,e.parliament.gov.bd
   db:
     image: mysql:8.0
     restart: always

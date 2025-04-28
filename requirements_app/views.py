@@ -973,7 +973,22 @@ def login_view(request):
 
 @require_POST
 def logout_view(request):
+    # Store the current user object before logout
+    user = request.user
+    
+    # Perform logout
     logout(request)
+    
+    # Clear any messages that might be stored in the session
+    storage = messages.get_messages(request)
+    for message in storage:
+        # Iterate through messages to clear them
+        pass
+    storage.used = True
+    
+    # Optional: Add a logout confirmation message
+    messages.success(request, "You have been successfully logged out.")
+    
     return redirect('login')
 
 @user_passes_test(is_admin)
@@ -1955,3 +1970,184 @@ def download_excel_report(request):
     wb.save(response)
     
     return response
+
+@user_passes_test(is_admin)
+def download_pdf_report(request):
+    """Generate and download a PDF report based on the query parameters"""
+    # Get report type
+    report_type = request.GET.get('report_type', '')
+    
+    if report_type == 'users':
+        return download_users_pdf_report(request)
+    elif report_type == 'forms':
+        return download_forms_pdf_report(request)
+    elif report_type == 'counts':
+        return download_counts_pdf_report(request)
+    else:
+        messages.error(request, "Invalid report type specified")
+        return redirect('reports')
+
+@user_passes_test(is_admin)
+def download_users_pdf_report(request):
+    """Generate PDF for User Report"""
+    user_role = request.GET.get('user_role', 'all')
+    
+    # Query users based on role
+    if user_role == 'admin':
+        user_report = User.objects.filter(role='admin').order_by('username')
+        report_title = 'Admin Users List'
+        filename = 'admin_users_report.pdf'
+    elif user_role == 'user':
+        user_report = User.objects.filter(role='user').order_by('username')
+        report_title = 'Regular Users List'
+        filename = 'regular_users_report.pdf'
+    else:
+        user_report = User.objects.all().order_by('role', 'username')
+        report_title = 'All System Users List'
+        filename = 'all_users_report.pdf'
+    
+    # Prepare context
+    context = {
+        'user_report': user_report,
+        'user_report_title': report_title,
+        'request': request,
+    }
+    
+    # Generate and return PDF
+    return generate_report_pdf('requirements_app/pdf/user_report_template.html', context, filename)
+
+@user_passes_test(is_admin)
+def download_forms_pdf_report(request):
+    """Generate PDF for Forms Report"""
+    form_filter_type = request.GET.get('form_filter_type', 'wing')
+    
+    # Get available wings
+    available_wings = User.objects.values('wing_name').distinct().exclude(wing_name='').order_by('wing_name')
+    
+    # Initialize context
+    context = {
+        'available_wings': available_wings,
+        'request': request,
+    }
+    
+    # Wing-wise report
+    if form_filter_type == 'wing':
+        selected_wings = request.GET.getlist('selected_wings', [])
+        
+        # Query forms based on selected wings
+        if not selected_wings or 'all' in selected_wings:
+            forms_report = RequirementForm.objects.filter(status='submitted').order_by('user__wing_name', '-submitted_at')
+            report_title = 'All Wings - Submitted Forms Report'
+            filename = 'all_wings_forms_report.pdf'
+        else:
+            forms_report = RequirementForm.objects.filter(status='submitted', user__wing_name__in=selected_wings).order_by('user__wing_name', '-submitted_at')
+            report_title = f"Selected Wings - Submitted Forms Report ({', '.join(selected_wings)})"
+            filename = 'selected_wings_forms_report.pdf'
+    
+    # User-wise report
+    elif form_filter_type == 'user':
+        selected_users = request.GET.get('selected_users', 'all')
+        
+        if selected_users == 'all':
+            forms_report = RequirementForm.objects.filter(status='submitted').order_by('user__username', '-submitted_at')
+            report_title = 'All Users - Submitted Forms Report'
+            filename = 'all_users_forms_report.pdf'
+        elif selected_users == 'custom':
+            custom_user_ids = request.GET.get('custom_user_ids', '')
+            
+            if custom_user_ids:
+                user_id_list = [user_id.strip() for user_id in custom_user_ids.split(',')]
+                forms_report = RequirementForm.objects.filter(status='submitted', user__username__in=user_id_list).order_by('user__username', '-submitted_at')
+                report_title = f"Selected Users - Submitted Forms Report ({custom_user_ids})"
+                filename = 'selected_users_forms_report.pdf'
+            else:
+                forms_report = []
+                report_title = 'No Users Selected'
+                filename = 'no_users_forms_report.pdf'
+    
+    # Process-wise report
+    elif form_filter_type == 'process':
+        process_name = request.GET.get('process_name', '')
+        
+        if process_name:
+            process_list = [p.strip() for p in process_name.split(',')]
+            if len(process_list) == 1:
+                forms_report = RequirementForm.objects.filter(status='submitted', process_name__icontains=process_list[0]).order_by('process_name', '-submitted_at')
+                report_title = f"Process: {process_name} - Submitted Forms Report"
+                filename = f'process_{process_name.replace(" ", "_")}_forms_report.pdf'
+            else:
+                q_objects = Q()
+                for process in process_list:
+                    q_objects |= Q(process_name__icontains=process)
+                forms_report = RequirementForm.objects.filter(status='submitted').filter(q_objects).order_by('process_name', '-submitted_at')
+                report_title = f"Multiple Processes - Submitted Forms Report"
+                filename = 'multiple_processes_forms_report.pdf'
+        else:
+            forms_report = []
+            report_title = 'No Process Selected'
+            filename = 'no_process_forms_report.pdf'
+    
+    # Update context with report data
+    context.update({
+        'forms_report': forms_report,
+        'forms_report_title': report_title,
+    })
+    
+    # Generate and return PDF
+    return generate_report_pdf('requirements_app/pdf/forms_report_template.html', context, filename)
+
+@user_passes_test(is_admin)
+def download_counts_pdf_report(request):
+    """Generate PDF for Counting Reports"""
+    count_report_type = request.GET.get('count_report_type', 'wing_count')
+    
+    # Initialize context
+    context = {
+        'request': request,
+    }
+    
+    filename = 'count_report.pdf'
+    
+    # Wing-wise count report
+    if count_report_type == 'wing_count':
+        wing_count_report = RequirementForm.objects.filter(status='submitted').values('user__wing_name').annotate(count=Count('id')).order_by('user__wing_name')
+        total_requirements = RequirementForm.objects.filter(status='submitted').count()
+        
+        context.update({
+            'wing_count_report': wing_count_report,
+            'total_requirements': total_requirements,
+            'count_report_type': 'wing_count'
+        })
+        
+        filename = 'wing_count_report.pdf'
+    
+    # User participation count report
+    elif count_report_type == 'user_participation':
+        participation_status = request.GET.get('participation_status', 'all')
+        
+        # Annotate users with submission count
+        users = User.objects.filter(role='user').annotate(
+            submission_count=Coalesce(Count('requirement_forms', filter=Q(requirement_forms__status='submitted')), V(0))
+        )
+        
+        # Filter based on participation status
+        if participation_status == 'submitted':
+            users = users.filter(submission_count__gt=0)
+            filename = 'participated_users_report.pdf'
+        elif participation_status == 'not_submitted':
+            users = users.filter(submission_count=0)
+            filename = 'non_participated_users_report.pdf'
+        else:
+            filename = 'all_users_participation_report.pdf'
+        
+        # Sort users by wing name and username
+        users = users.order_by('wing_name', 'username')
+        
+        context.update({
+            'user_participation_report': users,
+            'count_report_type': 'user_participation',
+            'participation_status': participation_status
+        })
+    
+    # Generate and return PDF
+    return generate_report_pdf('requirements_app/pdf/counts_report_template.html', context, filename)

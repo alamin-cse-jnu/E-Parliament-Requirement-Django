@@ -1,117 +1,323 @@
-{% extends "requirements_app/base.html" %}
+{% extends "requirements_app/admin_template.html" %}
+{% load widget_tweaks %}
 
 {% block title %}{{ title }} - E-Parliament Bangladesh{% endblock %}
 
-{% block content %}
-<div class="row">
-    <div class="col-md-12 mb-4">
-        <h2>{{ title }}</h2>
-        <p class="text-muted">Section: {{ section.title }}</p>
+{% block custom_styles %}
+.form-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border: none;
+    transition: all 0.3s;
+}
+
+.form-card:hover {
+    transform: translateY(-5px);
+}
+
+.form-header {
+    background: linear-gradient(45deg, #3498db, #5352ed);
+    color: white;
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.form-body {
+    padding: 2rem;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+}
+
+.help-text {
+    color: #6c757d;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+}
+
+.field-card {
+    border: 1px solid #e0e7ff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    background-color: #f8f9fa;
+}
+
+.field-type-badge {
+    display: inline-block;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.375rem;
+    background-color: #e2e3e5;
+    color: #41464b;
+}
+
+.field-preview {
+    padding: 15px;
+    background-color: white;
+    border: 1px dashed #dee2e6;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+.section-badge {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.5rem;
+    background-color: #e0f7fa;
+    color: #0288d1;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: #28a745;
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+.breadcrumb-custom {
+    background-color: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1.5rem;
+}
+
+#options-group {
+    transition: all 0.3s ease;
+}
+
+.field-type-icon {
+    height: 24px;
+    width: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin-right: 8px;
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+}
+{% endblock %}
+
+{% block main_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-{% if is_edit %}edit{% else %}plus-circle{% endif %} me-2 text-primary"></i>{{ title }}</h2>
+            <a href="{% url 'manage_form_structure' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Form Structure
+            </a>
+        </div>
+        <p class="text-muted">{% if is_edit %}Edit question for section "{{ section.title }}"{% else %}Add new question to section "{{ section.title }}"{% endif %}</p>
     </div>
 </div>
 
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="breadcrumb-custom">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'admin_dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'manage_form_structure' %}">Form Structure</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'manage_form_structure' %}">{{ section.title }}</a></li>
+        <li class="breadcrumb-item active">{% if is_edit %}Edit{% else %}New{% endif %} Question</li>
+    </ol>
+</nav>
+
+<!-- Messages -->
 {% if messages %}
-    <div class="row">
-        <div class="col-md-12">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-            {% endfor %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
+        {% endfor %}
     </div>
+</div>
 {% endif %}
 
 <div class="row">
-    <div class="col-md-10 offset-md-1">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <form method="post">
+    <div class="col-lg-10 col-md-12 mx-auto">
+        <div class="card form-card">
+            <div class="form-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-{% if is_edit %}edit{% else %}plus-circle{% endif %} me-2"></i>
+                    {% if is_edit %}Edit Question{% else %}Add New Question{% endif %}
+                </h4>
+                <div class="section-badge mt-2">
+                    <i class="fas fa-folder-open me-1"></i> Section: {{ section.title }}
+                </div>
+            </div>
+            <div class="form-body">
+                <form method="post" id="questionForm">
                     {% csrf_token %}
                     
-                    <div class="form-group">
-                        <label for="{{ form.question_text.id_for_label }}">Question Text *</label>
-                        {{ form.question_text }}
+                    <div class="mb-4">
+                        <label for="{{ form.question_text.id_for_label }}" class="form-label required-field">Question Text</label>
+                        {% render_field form.question_text class="form-control" placeholder="Enter the question text" %}
                         {% if form.question_text.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.question_text.errors }}
-                            </div>
+                        <div class="invalid-feedback d-block">
+                            {{ form.question_text.errors }}
+                        </div>
                         {% endif %}
+                        <div class="help-text">The exact text that will be displayed to users.</div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="{{ form.field_type.id_for_label }}">Field Type *</label>
-                        {{ form.field_type }}
-                        {% if form.field_type.errors %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="{{ form.field_type.id_for_label }}" class="form-label required-field">Field Type</label>
+                            {% render_field form.field_type class="form-control" id="fieldTypeSelect" %}
+                            {% if form.field_type.errors %}
                             <div class="invalid-feedback d-block">
                                 {{ form.field_type.errors }}
                             </div>
-                        {% endif %}
+                            {% endif %}
+                            <div class="help-text">Determines how users will input their answers.</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="{{ form.order.id_for_label }}" class="form-label">Display Order</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">
+                                    <i class="fas fa-sort-numeric-down text-primary"></i>
+                                </span>
+                                {% render_field form.order class="form-control" min="0" %}
+                            </div>
+                            {% if form.order.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.order.errors }}
+                            </div>
+                            {% endif %}
+                            <div class="help-text">Lower numbers appear first in the section.</div>
+                        </div>
                     </div>
                     
-                    <div class="form-group" id="options-group">
-                        <label for="{{ form.options.id_for_label }}">Options</label>
-                        {{ form.options }}
-                        <small class="form-text text-muted">For radio buttons, checkboxes, and dropdowns. Enter one option per line.</small>
+                    <div id="options-group" class="mb-4 field-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label for="{{ form.options.id_for_label }}" class="form-label mb-0">Options</label>
+                            <span class="field-type-badge">
+                                <i class="fas fa-list me-1"></i> Choice Field
+                            </span>
+                        </div>
+                        
+                        {% render_field form.options class="form-control" rows="4" placeholder="Enter one option per line" %}
                         {% if form.options.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.options.errors }}
-                            </div>
+                        <div class="invalid-feedback d-block">
+                            {{ form.options.errors }}
+                        </div>
                         {% endif %}
+                        <div class="help-text">For radio buttons, checkboxes, and dropdowns. Enter one option per line.</div>
+                        
+                        <!-- Preview section -->
+                        <div class="field-preview mt-3" id="optionsPreview">
+                            <div class="preview-title mb-2">
+                                <i class="fas fa-eye me-1"></i> Preview
+                            </div>
+                            <div class="preview-content">
+                                <!-- Will be filled by JavaScript -->
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="{{ form.help_text.id_for_label }}">Help Text</label>
-                        {{ form.help_text }}
-                        <small class="form-text text-muted">Additional instructions to help users answer the question</small>
+                    <div class="mb-4">
+                        <label for="{{ form.help_text.id_for_label }}" class="form-label">Help Text</label>
+                        {% render_field form.help_text class="form-control" placeholder="Additional instructions to help users answer the question (optional)" %}
                         {% if form.help_text.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.help_text.errors }}
-                            </div>
+                        <div class="invalid-feedback d-block">
+                            {{ form.help_text.errors }}
+                        </div>
                         {% endif %}
+                        <div class="help-text">Displayed below the question to provide additional guidance to users.</div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label for="{{ form.order.id_for_label }}">Order</label>
-                                {{ form.order }}
-                                <small class="form-text text-muted">Lower numbers appear first</small>
-                                {% if form.order.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.order.errors }}
-                                    </div>
-                                {% endif %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                {% render_field form.is_required class="form-check-input" %}
+                                <label class="form-check-label" for="{{ form.is_required.id_for_label }}">
+                                    Required
+                                </label>
                             </div>
+                            <div class="help-text">If checked, users must provide an answer to this question.</div>
                         </div>
                         
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <div class="custom-control custom-switch mt-4">
-                                    {{ form.is_required }}
-                                    <label class="custom-control-label" for="{{ form.is_required.id_for_label }}">Required</label>
-                                </div>
-                                <small class="form-text text-muted">If checked, users must provide an answer</small>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                {% render_field form.is_active class="form-check-input" %}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    Active
+                                </label>
                             </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <div class="custom-control custom-switch mt-4">
-                                    {{ form.is_active }}
-                                    <label class="custom-control-label" for="{{ form.is_active.id_for_label }}">Active</label>
-                                </div>
-                                <small class="form-text text-muted">If unchecked, this question will not appear in the form</small>
-                            </div>
+                            <div class="help-text">If unchecked, this question won't appear in the form.</div>
                         </div>
                     </div>
                     
-                    <div class="form-group text-center mt-4">
-                        <a href="{% url 'manage_form_structure' %}" class="btn btn-secondary">Cancel</a>
+                    <div class="action-buttons">
+                        <a href="{% url 'manage_form_structure' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i> Cancel
+                        </a>
+                        
                         <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-{% if is_edit %}save{% else %}plus-circle{% endif %} me-1"></i> 
                             {% if is_edit %}Update{% else %}Create{% endif %} Question
                         </button>
                     </div>
@@ -122,34 +328,107 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block extra_scripts %}
 <script>
-    $(document).ready(function() {
+    document.addEventListener('DOMContentLoaded', function() {
         // Add Bootstrap classes to form fields
         $('#{{ form.question_text.id_for_label }}').addClass('form-control');
         $('#{{ form.field_type.id_for_label }}').addClass('form-control');
         $('#{{ form.options.id_for_label }}').addClass('form-control');
         $('#{{ form.help_text.id_for_label }}').addClass('form-control');
         $('#{{ form.order.id_for_label }}').addClass('form-control');
-        $('#{{ form.is_required.id_for_label }}').addClass('custom-control-input');
-        $('#{{ form.is_active.id_for_label }}').addClass('custom-control-input');
+        $('#{{ form.is_required.id_for_label }}').addClass('form-check-input');
+        $('#{{ form.is_active.id_for_label }}').addClass('form-check-input');
         
-        // Show/hide options field based on field type
+        // Handle showing/hiding options field based on field type
         function toggleOptionsField() {
-            var fieldType = $('#{{ form.field_type.id_for_label }}').val();
+            const fieldType = $('#{{ form.field_type.id_for_label }}').val();
+            const optionsGroup = $('#options-group');
+            const previewContent = $('#optionsPreview .preview-content');
+            
             if (['radio', 'checkbox', 'select'].includes(fieldType)) {
-                $('#options-group').show();
+                optionsGroup.slideDown(300);
+                
+                // Update the preview based on options and field type
+                updateOptionsPreview(fieldType);
+                
+                // Update badge
+                const typeBadge = optionsGroup.find('.field-type-badge');
+                let icon, text;
+                
+                if (fieldType === 'radio') {
+                    icon = 'fas fa-dot-circle';
+                    text = 'Radio Buttons';
+                } else if (fieldType === 'checkbox') {
+                    icon = 'fas fa-check-square';
+                    text = 'Checkboxes';
+                } else if (fieldType === 'select') {
+                    icon = 'fas fa-caret-square-down';
+                    text = 'Dropdown';
+                }
+                
+                typeBadge.html(`<i class="${icon} me-1"></i> ${text}`);
             } else {
-                $('#options-group').hide();
+                optionsGroup.slideUp(300);
             }
         }
         
-        // Run on page load
+        // Function to update the options preview
+        function updateOptionsPreview(fieldType) {
+            const options = $('#{{ form.options.id_for_label }}').val().split('\n').filter(opt => opt.trim() !== '');
+            const previewContent = $('#optionsPreview .preview-content');
+            previewContent.empty();
+            
+            if (options.length === 0) {
+                previewContent.html('<div class="text-muted">No options added yet</div>');
+                return;
+            }
+            
+            if (fieldType === 'radio') {
+                const radioGroup = $('<div class="form-group"></div>');
+                options.forEach((option, index) => {
+                    const id = `preview-radio-${index}`;
+                    radioGroup.append(`
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="previewRadio" id="${id}">
+                            <label class="form-check-label" for="${id}">${option}</label>
+                        </div>
+                    `);
+                });
+                previewContent.append(radioGroup);
+            } else if (fieldType === 'checkbox') {
+                const checkboxGroup = $('<div class="form-group"></div>');
+                options.forEach((option, index) => {
+                    const id = `preview-checkbox-${index}`;
+                    checkboxGroup.append(`
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="${id}">
+                            <label class="form-check-label" for="${id}">${option}</label>
+                        </div>
+                    `);
+                });
+                previewContent.append(checkboxGroup);
+            } else if (fieldType === 'select') {
+                const select = $('<select class="form-select"></select>');
+                select.append('<option value="" selected disabled>Choose an option</option>');
+                options.forEach(option => {
+                    select.append(`<option>${option}</option>`);
+                });
+                previewContent.append(select);
+            }
+        }
+        
+        // Run toggle on page load
         toggleOptionsField();
         
-        // Run when field type changes
+        // Update when field type changes
         $('#{{ form.field_type.id_for_label }}').change(function() {
             toggleOptionsField();
+        });
+        
+        // Update preview when options change
+        $('#{{ form.options.id_for_label }}').on('input', function() {
+            updateOptionsPreview($('#{{ form.field_type.id_for_label }}').val());
         });
     });
 </script>

@@ -1,61 +1,180 @@
-{% extends "requirements_app/base.html" %}
+{% extends "requirements_app/admin_template.html" %}
+{% load custom_tags %}
 
 {% block title %}Manage Form Structure - E-Parliament Bangladesh{% endblock %}
 
-{% block content %}
-<div class="row">
-    <div class="col-md-12 mb-4">
+{% block custom_styles %}
+.section-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+    transition: all 0.3s;
+    overflow: hidden;
+    border: none;
+}
+
+.section-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+    background-color: #f8f9fa;
+}
+
+.section-title {
+    margin: 0;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-title .badge {
+    font-size: 0.75rem;
+}
+
+.section-badge {
+    border-radius: 20px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.question-table {
+    margin-bottom: 0;
+}
+
+.question-table th {
+    background-color: #f2f2f2;
+    color: #333;
+    font-weight: 600;
+}
+
+.empty-section {
+    padding: 2rem;
+    text-align: center;
+    background-color: rgba(0,0,0,0.02);
+    border-radius: 0.5rem;
+}
+
+.section-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-action {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+.add-section-card {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+    cursor: pointer;
+    text-align: center;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+}
+
+.add-section-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+}
+
+.add-section-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.add-section-btn {
+    background-color: white;
+    color: #28a745;
+    border: none;
+    font-weight: 600;
+}
+
+.collapser {
+    transition: transform 0.3s;
+}
+
+[aria-expanded="true"] .collapser {
+    transform: rotate(90deg);
+}
+{% endblock %}
+
+{% block main_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center">
             <h2><i class="fas fa-tasks me-2 text-primary"></i>Manage Form Structure</h2>
             <a href="{% url 'add_section' %}" class="btn btn-success">
-                <i class="fas fa-plus-circle"></i> Add New Section
+                <i class="fas fa-plus-circle me-1"></i> Add New Section
             </a>
         </div>
-        <p class="text-muted">Create and manage sections and questions for requirement forms.</p>
+        <p class="text-muted">Create and manage sections and questions for the E-Parliament requirements form.</p>
     </div>
 </div>
 
-
-{% if sections %}
-    <div class="accordion" id="formStructureAccordion">
-        {% for section in sections %}
-        <div class="card shadow-sm mb-3">
-            <div class="card-header bg-light border-start border-4 border-primary d-flex justify-content-between align-items-center" id="heading{{ section.id }}">
-                <div>
-                    <h5 class="mb-0">
-                        <button class="btn btn-link text-dark fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ section.id }}" aria-expanded="true" aria-controls="collapse{{ section.id }}">
-                            <i class="fas fa-folder-open text-primary me-1"></i> {{ section.title }}
+<div class="row">
+    <!-- Form Sections -->
+    <div class="col-md-12">
+        {% if sections %}
+        <div class="accordion" id="formStructureAccordion">
+            {% for section in sections %}
+            <div class="card section-card mb-3">
+                <div class="section-header" id="heading{{ section.id }}">
+                    <h5 class="section-title mb-0">
+                        <button class="btn btn-link text-dark" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ section.id }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ section.id }}">
+                            <i class="fas fa-chevron-right collapser me-2"></i>
+                            <i class="fas fa-folder-open text-primary"></i>
+                            {{ section.title }}
                             {% if not section.is_active %}
                                 <span class="badge bg-warning text-dark ms-2">Inactive</span>
                             {% endif %}
                         </button>
                     </h5>
-                    <small class="text-muted">Order: {{ section.order }}</small>
+                    <div class="section-actions">
+                        <span class="text-muted me-2">Order: {{ section.order }}</span>
+                        <a href="{% url 'edit_section' section.id %}" class="btn btn-outline-primary btn-action" data-bs-toggle="tooltip" title="Edit Section">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'delete_section' section.id %}" class="btn btn-outline-danger btn-action" data-bs-toggle="tooltip" title="Delete Section">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                        <a href="{% url 'add_question' section.id %}" class="btn btn-outline-success btn-action" data-bs-toggle="tooltip" title="Add Question">
+                            <i class="fas fa-plus"></i>
+                        </a>
+                    </div>
                 </div>
-                <div class="btn-group btn-group-sm">
-                    <a href="{% url 'edit_section' section.id %}" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Edit Section"><i class="fas fa-edit"></i></a>
-                    <a href="{% url 'delete_section' section.id %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Delete Section"><i class="fas fa-trash"></i></a>
-                    <a href="{% url 'add_question' section.id %}" class="btn btn-outline-success" data-bs-toggle="tooltip" title="Add Question"><i class="fas fa-plus"></i></a>
-                </div>
-            </div>
-            <div id="collapse{{ section.id }}" class="collapse {% if forloop.first %}show{% endif %}" aria-labelledby="heading{{ section.id }}" data-bs-parent="#formStructureAccordion">
-                <div class="card-body">
-                    {% if section.description %}
-                        <p class="text-muted">{{ section.description }}</p>
-                    {% endif %}
+                <div id="collapse{{ section.id }}" class="collapse {% if forloop.first %}show{% endif %}" aria-labelledby="heading{{ section.id }}" data-bs-parent="#formStructureAccordion">
+                    <div class="card-body">
+                        {% if section.description %}
+                            <div class="alert alert-light border-start border-4 border-info mb-3">
+                                <p class="mb-0">{{ section.description }}</p>
+                            </div>
+                        {% endif %}
 
-                    <h6><i class="fas fa-question-circle text-secondary me-1"></i> Questions:</h6>
-                    {% if section.ordered_questions %}
+                        <h6 class="mb-3 border-bottom pb-2"><i class="fas fa-question-circle me-2 text-primary"></i>Questions</h6>
+                        
+                        {% if section.ordered_questions %}
                         <div class="table-responsive">
-                            <table class="table table-sm table-hover table-striped table-bordered align-middle">
-                                <thead class="table-light">
+                            <table class="table table-hover table-striped question-table">
+                                <thead>
                                     <tr>
-                                        <th>Order</th>
-                                        <th>Question</th>
-                                        <th>Type</th>
-                                        <th>Required</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
+                                        <th style="width: 5%">Order</th>
+                                        <th style="width: 45%">Question</th>
+                                        <th style="width: 15%">Type</th>
+                                        <th style="width: 10%">Required</th>
+                                        <th style="width: 10%">Status</th>
+                                        <th style="width: 15%">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -63,10 +182,10 @@
                                     <tr>
                                         <td>{{ question.order }}</td>
                                         <td>{{ question.question_text }}</td>
-                                        <td>{{ question.get_field_type_display }}</td>
+                                        <td><span class="badge bg-info text-dark">{{ question.get_field_type_display }}</span></td>
                                         <td>
                                             {% if question.is_required %}
-                                                <span class="badge bg-info text-dark">Required</span>
+                                                <span class="badge bg-primary">Required</span>
                                             {% else %}
                                                 <span class="badge bg-secondary">Optional</span>
                                             {% endif %}
@@ -80,8 +199,12 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <a href="{% url 'edit_question' section.id question.id %}" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Edit Question"><i class="fas fa-edit"></i></a>
-                                                <a href="{% url 'delete_question' question.id %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Delete Question"><i class="fas fa-trash"></i></a>
+                                                <a href="{% url 'edit_question' section.id question.id %}" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Edit Question">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'delete_question' question.id %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Delete Question">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
                                             </div>
                                         </td>
                                     </tr>
@@ -89,26 +212,60 @@
                                 </tbody>
                             </table>
                         </div>
-                    {% else %}
-                        <div class="alert alert-info text-center">
-                            <i class="fas fa-info-circle me-1"></i> No questions added to this section yet.
+                        {% else %}
+                        <div class="empty-section">
+                            <i class="fas fa-info-circle me-2 text-info"></i>
+                            <span class="text-muted">No questions added to this section yet.</span>
+                            <div class="mt-3">
+                                <a href="{% url 'add_question' section.id %}" class="btn btn-success btn-sm">
+                                    <i class="fas fa-plus me-1"></i> Add First Question
+                                </a>
+                            </div>
                         </div>
-                    {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+        {% else %}
+        <div class="card section-card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-tasks fa-4x text-muted mb-3"></i>
+                <h4>No Form Sections Yet</h4>
+                <p class="text-muted">Start by creating your first section to organize the form structure.</p>
+                <a href="{% url 'add_section' %}" class="btn btn-success mt-3">
+                    <i class="fas fa-plus-circle me-2"></i> Create First Section
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </div>
-{% else %}
-    <div class="alert alert-info text-center">
-        <i class="fas fa-info-circle me-1"></i> No form sections have been created yet. Click "Add New Section" to get started.
+</div>
+
+<!-- Add new section card -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <a href="{% url 'add_section' %}" class="text-decoration-none">
+            <div class="add-section-card">
+                <div class="add-section-icon">
+                    <i class="fas fa-plus-circle"></i>
+                </div>
+                <h4>Add New Section</h4>
+                <p>Create a new section to organize your form questions</p>
+                <button class="btn add-section-btn">
+                    <i class="fas fa-plus me-1"></i> Create Section
+                </button>
+            </div>
+        </a>
     </div>
-{% endif %}
+</div>
 {% endblock %}
 
-{% block extra_js %}
+{% block extra_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
         var tooltipList = tooltipTriggerList.map(function(el) {
             return new bootstrap.Tooltip(el);

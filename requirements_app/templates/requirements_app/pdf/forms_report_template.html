@@ -1,0 +1,117 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Forms Report - E-Parliament Bangladesh</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            max-width: 80px;
+            margin-bottom: 10px;
+        }
+        .report-title {
+            color: #28a745;
+            margin-bottom: 5px;
+        }
+        .report-date {
+            color: #666;
+            font-size: 0.8em;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th {
+            background-color: #28a745;
+            color: white;
+            font-weight: bold;
+            text-align: left;
+            padding: 8px;
+        }
+        td {
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-size: 0.8em;
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {% if logo_data_uri %}
+            <img src="{{ logo_data_uri }}" alt="Parliament Logo" class="logo">
+        {% else %}
+            <div style="width: 80px; height: 80px; margin: 0 auto; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
+                <span style="color: #666;">Logo</span>
+            </div>
+        {% endif %}
+        <h2 class="report-title">E-Parliament Bangladesh</h2>
+        <h3>{{ user_report_title|default:"Report" }}</h3>
+        <p class="report-date">Generated on: {{ current_date }}</p>
+    </div>
+    
+    <div class="content">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 5%">SL.</th>
+                    <th style="width: 15%">User ID</th>
+                    <th style="width: 20%">User Name</th>
+                    <th style="width: 20%">Process Name</th>
+                    <th style="width: 15%">Wing</th>
+                    <th style="width: 15%">Submitted Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for form in forms_report %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ form.user.username }}</td>
+                    <td>{{ form.user.get_full_name }}</td>
+                    <td>{{ form.process_name }}</td>
+                    <td>{{ form.user.wing_name }}</td>
+                    <td>{{ form.submitted_at|date:"F d, Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center;">No forms found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="6" style="text-align: right; font-weight: bold;">
+                        Total: {{ forms_report|length }} form(s)
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    
+    <div class="footer">
+        <p> System Generated </p>
+        <p>© {% now "Y" %} E-Parliament Bangladesh - Software Development Section, B&IT Wing</p>
+    </div>
+</body>
+</html>

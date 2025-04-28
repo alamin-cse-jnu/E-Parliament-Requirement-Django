@@ -52,4 +52,8 @@ urlpatterns = [
     # Reports routes
     path('reports/', views.reports, name='reports'),
     path('download-excel-report/', views.download_excel_report, name='download_excel_report'),
+    path('download-pdf-report/', views.download_pdf_report, name='download_pdf_report'),
+    path('download-users-pdf-report/', views.download_users_pdf_report, name='download_users_pdf_report'),
+    path('download-forms-pdf-report/', views.download_forms_pdf_report, name='download_forms_pdf_report'),
+    path('download-counts-pdf-report/', views.download_counts_pdf_report, name='download_counts_pdf_report'),
 ]

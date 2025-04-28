@@ -1,0 +1,161 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Counting Report - E-Parliament Bangladesh</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            max-width: 80px;
+            margin-bottom: 10px;
+        }
+        .report-title {
+            color: #28a745;
+            margin-bottom: 5px;
+        }
+        .report-date {
+            color: #666;
+            font-size: 0.8em;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th {
+            background-color: #28a745;
+            color: white;
+            font-weight: bold;
+            text-align: left;
+            padding: 8px;
+        }
+        td {
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-size: 0.8em;
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        h3.section-title {
+            color: #28a745;
+            border-left: 4px solid #28a745;
+            padding-left: 10px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {% if logo_data_uri %}
+            <img src="{{ logo_data_uri }}" alt="Parliament Logo" class="logo">
+        {% else %}
+            <div style="width: 80px; height: 80px; margin: 0 auto; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
+                <span style="color: #666;">Logo</span>
+            </div>
+        {% endif %}
+        <h2 class="report-title">E-Parliament Bangladesh</h2>
+        <h3>{{ user_report_title|default:"Report" }}</h3>
+        <p class="report-date">Generated on: {{ current_date }}</p>
+    </div>
+    
+    <div class="content">
+        {% if wing_count_report %}
+            <h3 class="section-title">Wing-Wise Requirement Count</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 10%">SL.</th>
+                        <th style="width: 50%">Wing Name</th>
+                        <th style="width: 40%">Number of Requirement</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for wing in wing_count_report %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ wing.user__wing_name|default:"Unspecified" }}</td>
+                        <td>{{ wing.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="text-align: center;">No data found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2" style="text-align: right;"><strong>Total Wings:</strong></td>
+                        <td><strong>{{ wing_count_report|length }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: right;"><strong>Total Requirements:</strong></td>
+                        <td><strong>{{ total_requirements }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        {% endif %}
+        
+        {% if user_participation_report %}
+            <h3 class="section-title">User Participation Report</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 5%">SL.</th>
+                        <th style="width: 15%">ID</th>
+                        <th style="width: 20%">Name</th>
+                        <th style="width: 20%">Designation</th>
+                        <th style="width: 15%">Wing</th>
+                        <th style="width: 25%">Total Submitted Requirement</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in user_participation_report %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.get_full_name }}</td>
+                        <td>{{ user.designation }}</td>
+                        <td>{{ user.wing_name }}</td>
+                        <td>{{ user.submission_count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center;">No data found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="5" style="text-align: right;"><strong>Total Users:</strong></td>
+                        <td><strong>{{ user_participation_report|length }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        {% endif %}
+    </div>
+    
+    <div class="footer">
+        <p>System Generated</p>
+        <p>© {% now "Y" %} E-Parliament Bangladesh - Software Development Section, B&IT Wing</p>
+    </div>
+</body>
+</html>
