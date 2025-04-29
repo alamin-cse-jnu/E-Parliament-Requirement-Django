@@ -251,9 +251,10 @@ input:checked + .toggle-slider:before {
                         </div>
                     </div>
                     
-                    <div id="options-group" class="mb-4 field-card">
+                    <!-- The options field - initially hidden -->
+                    <div id="options-group" class="mb-4 field-card" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label for="{{ form.options.id_for_label }}" class="form-label mb-0">Options</label>
+                            <label for="{{ form.options.id_for_label }}" class="form-label mb-0 required-field">Options</label>
                             <span class="field-type-badge">
                                 <i class="fas fa-list me-1"></i> Choice Field
                             </span>
@@ -331,29 +332,20 @@ input:checked + .toggle-slider:before {
 {% block extra_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Add Bootstrap classes to form fields
-        $('#{{ form.question_text.id_for_label }}').addClass('form-control');
-        $('#{{ form.field_type.id_for_label }}').addClass('form-control');
-        $('#{{ form.options.id_for_label }}').addClass('form-control');
-        $('#{{ form.help_text.id_for_label }}').addClass('form-control');
-        $('#{{ form.order.id_for_label }}').addClass('form-control');
-        $('#{{ form.is_required.id_for_label }}').addClass('form-check-input');
-        $('#{{ form.is_active.id_for_label }}').addClass('form-check-input');
+        // Get the field type select element
+        const fieldTypeSelect = document.getElementById('fieldTypeSelect');
+        const optionsGroup = document.getElementById('options-group');
         
-        // Handle showing/hiding options field based on field type
+        // Function to toggle options field visibility based on selected field type
         function toggleOptionsField() {
-            const fieldType = $('#{{ form.field_type.id_for_label }}').val();
-            const optionsGroup = $('#options-group');
-            const previewContent = $('#optionsPreview .preview-content');
+            const fieldType = fieldTypeSelect.value;
             
+            // Show options field for radio, checkbox, and select types
             if (['radio', 'checkbox', 'select'].includes(fieldType)) {
-                optionsGroup.slideDown(300);
+                optionsGroup.style.display = 'block';
                 
-                // Update the preview based on options and field type
-                updateOptionsPreview(fieldType);
-                
-                // Update badge
-                const typeBadge = optionsGroup.find('.field-type-badge');
+                // Update the badge based on the field type
+                const typeBadge = optionsGroup.querySelector('.field-type-badge');
                 let icon, text;
                 
                 if (fieldType === 'radio') {
@@ -367,69 +359,121 @@ input:checked + .toggle-slider:before {
                     text = 'Dropdown';
                 }
                 
-                typeBadge.html(`<i class="${icon} me-1"></i> ${text}`);
+                typeBadge.innerHTML = `<i class="${icon} me-1"></i> ${text}`;
+                
+                // Update the options preview
+                updateOptionsPreview();
             } else {
-                optionsGroup.slideUp(300);
+                // Hide options field for other field types
+                optionsGroup.style.display = 'none';
             }
         }
         
         // Function to update the options preview
-        function updateOptionsPreview(fieldType) {
-            const options = $('#{{ form.options.id_for_label }}').val().split('\n').filter(opt => opt.trim() !== '');
-            const previewContent = $('#optionsPreview .preview-content');
-            previewContent.empty();
+        function updateOptionsPreview() {
+            const fieldType = fieldTypeSelect.value;
+            const optionsTextarea = document.getElementById('{{ form.options.id_for_label }}');
+            const previewContent = document.querySelector('#optionsPreview .preview-content');
             
+            // Get options as array, filtering empty lines
+            const options = optionsTextarea.value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line !== '');
+                
+            // Clear previous preview
+            previewContent.innerHTML = '';
+            
+            // If no options, show placeholder message
             if (options.length === 0) {
-                previewContent.html('<div class="text-muted">No options added yet</div>');
+                previewContent.innerHTML = '<div class="text-muted">No options added yet. Add at least one option per line.</div>';
                 return;
             }
             
+            // Create preview based on field type
             if (fieldType === 'radio') {
-                const radioGroup = $('<div class="form-group"></div>');
+                // Radio buttons preview
+                const radioGroup = document.createElement('div');
+                radioGroup.className = 'form-group';
+                
                 options.forEach((option, index) => {
                     const id = `preview-radio-${index}`;
-                    radioGroup.append(`
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="previewRadio" id="${id}">
-                            <label class="form-check-label" for="${id}">${option}</label>
-                        </div>
-                    `);
+                    
+                    const div = document.createElement('div');
+                    div.className = 'form-check';
+                    
+                    const input = document.createElement('input');
+                    input.className = 'form-check-input';
+                    input.type = 'radio';
+                    input.name = 'previewRadio';
+                    input.id = id;
+                    
+                    const label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.htmlFor = id;
+                    label.textContent = option;
+                    
+                    div.appendChild(input);
+                    div.appendChild(label);
+                    radioGroup.appendChild(div);
                 });
-                previewContent.append(radioGroup);
+                
+                previewContent.appendChild(radioGroup);
             } else if (fieldType === 'checkbox') {
-                const checkboxGroup = $('<div class="form-group"></div>');
+                // Checkboxes preview
+                const checkboxGroup = document.createElement('div');
+                checkboxGroup.className = 'form-group';
+                
                 options.forEach((option, index) => {
                     const id = `preview-checkbox-${index}`;
-                    checkboxGroup.append(`
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="${id}">
-                            <label class="form-check-label" for="${id}">${option}</label>
-                        </div>
-                    `);
+                    
+                    const div = document.createElement('div');
+                    div.className = 'form-check';
+                    
+                    const input = document.createElement('input');
+                    input.className = 'form-check-input';
+                    input.type = 'checkbox';
+                    input.id = id;
+                    
+                    const label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.htmlFor = id;
+                    label.textContent = option;
+                    
+                    div.appendChild(input);
+                    div.appendChild(label);
+                    checkboxGroup.appendChild(div);
                 });
-                previewContent.append(checkboxGroup);
+                
+                previewContent.appendChild(checkboxGroup);
             } else if (fieldType === 'select') {
-                const select = $('<select class="form-select"></select>');
-                select.append('<option value="" selected disabled>Choose an option</option>');
+                // Dropdown preview
+                const select = document.createElement('select');
+                select.className = 'form-select';
+                
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Choose an option';
+                defaultOption.selected = true;
+                defaultOption.disabled = true;
+                select.appendChild(defaultOption);
+                
                 options.forEach(option => {
-                    select.append(`<option>${option}</option>`);
+                    const optionElement = document.createElement('option');
+                    optionElement.textContent = option;
+                    select.appendChild(optionElement);
                 });
-                previewContent.append(select);
+                
+                previewContent.appendChild(select);
             }
         }
         
-        // Run toggle on page load
+        // Add event listeners
+        fieldTypeSelect.addEventListener('change', toggleOptionsField);
+        document.getElementById('{{ form.options.id_for_label }}').addEventListener('input', updateOptionsPreview);
+        
+        // Initialize on page load
         toggleOptionsField();
-        
-        // Update when field type changes
-        $('#{{ form.field_type.id_for_label }}').change(function() {
-            toggleOptionsField();
-        });
-        
-        // Update preview when options change
-        $('#{{ form.options.id_for_label }}').on('input', function() {
-            updateOptionsPreview($('#{{ form.field_type.id_for_label }}').val());
-        });
     });
 </script>
 {% endblock %}

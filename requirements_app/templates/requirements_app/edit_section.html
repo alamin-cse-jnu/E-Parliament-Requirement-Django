@@ -1,80 +1,244 @@
-{% extends "requirements_app/base.html" %}
+{% extends "requirements_app/admin_template.html" %}
+{% load widget_tweaks %}
 
 {% block title %}{{ title }} - E-Parliament Bangladesh{% endblock %}
 
-{% block content %}
-<div class="row">
-    <div class="col-md-12 mb-4">
-        <h2>{{ title }}</h2>
-        <p class="text-muted">Manage section details for the requirement form</p>
+{% block custom_styles %}
+.form-card {
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border: none;
+    transition: all 0.3s;
+}
+
+.form-card:hover {
+    transform: translateY(-5px);
+}
+
+.form-header {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.form-body {
+    padding: 2rem;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+}
+
+.help-text {
+    color: #6c757d;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+}
+
+.breadcrumb-custom {
+    background-color: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: #28a745;
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+.section-preview {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px dashed #dee2e6;
+    border-radius: 6px;
+    margin-top: 20px;
+}
+
+.preview-title {
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #495057;
+}
+{% endblock %}
+
+{% block main_content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-{% if is_edit %}edit{% else %}plus-circle{% endif %} me-2 text-primary"></i>{{ title }}</h2>
+            <a href="{% url 'manage_form_structure' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Form Structure
+            </a>
+        </div>
+        <p class="text-muted">{% if is_edit %}Edit existing section details{% else %}Create a new section for organizing form questions{% endif %}</p>
     </div>
 </div>
 
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="breadcrumb-custom">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{% url 'admin_dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'manage_form_structure' %}">Form Structure</a></li>
+        <li class="breadcrumb-item active">{% if is_edit %}Edit Section{% else %}New Section{% endif %}</li>
+    </ol>
+</nav>
+
+<!-- Messages -->
 {% if messages %}
-    <div class="row">
-        <div class="col-md-12">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-            {% endfor %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
+        {% endfor %}
     </div>
+</div>
 {% endif %}
 
 <div class="row">
-    <div class="col-md-8 offset-md-2">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <form method="post">
+    <div class="col-lg-8 col-md-12 mx-auto">
+        <div class="card form-card">
+            <div class="form-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-{% if is_edit %}edit{% else %}plus-circle{% endif %} me-2"></i>
+                    {% if is_edit %}Edit Section{% else %}Create New Section{% endif %}
+                </h4>
+            </div>
+            <div class="form-body">
+                <form method="post" id="sectionForm">
                     {% csrf_token %}
                     
-                    <div class="form-group">
-                        <label for="{{ form.title.id_for_label }}">Title *</label>
-                        {{ form.title }}
+                    <div class="mb-4">
+                        <label for="{{ form.title.id_for_label }}" class="form-label required-field">Section Title</label>
+                        {% render_field form.title class="form-control" placeholder="Enter section title" %}
                         {% if form.title.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.title.errors }}
-                            </div>
+                        <div class="invalid-feedback d-block">
+                            {{ form.title.errors }}
+                        </div>
                         {% endif %}
+                        <div class="help-text">Give your section a clear and descriptive title.</div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="{{ form.description.id_for_label }}">Description</label>
-                        {{ form.description }}
+                    <div class="mb-4">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {% render_field form.description class="form-control" rows="3" placeholder="Enter optional section description" %}
                         {% if form.description.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.description.errors }}
-                            </div>
+                        <div class="invalid-feedback d-block">
+                            {{ form.description.errors }}
+                        </div>
                         {% endif %}
-                        <small class="form-text text-muted">Provide a brief description of this section's purpose</small>
+                        <div class="help-text">Provide context about this section's purpose (optional).</div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="{{ form.order.id_for_label }}">Order</label>
-                        {{ form.order }}
-                        <small class="form-text text-muted">Lower numbers appear first</small>
-                        {% if form.order.errors %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="{{ form.order.id_for_label }}" class="form-label">Display Order</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">
+                                    <i class="fas fa-sort-numeric-down text-primary"></i>
+                                </span>
+                                {% render_field form.order class="form-control" min="0" %}
+                            </div>
+                            {% if form.order.errors %}
                             <div class="invalid-feedback d-block">
                                 {{ form.order.errors }}
                             </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="form-group">
-                        <div class="custom-control custom-switch">
-                            {{ form.is_active }}
-                            <label class="custom-control-label" for="{{ form.is_active.id_for_label }}">Active</label>
+                            {% endif %}
+                            <div class="help-text">Lower numbers appear first in the form.</div>
                         </div>
-                        <small class="form-text text-muted">If unchecked, this section will not appear in the form</small>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label d-block">Section Status</label>
+                            <div class="form-check form-switch mt-2">
+                                {% render_field form.is_active class="form-check-input" %}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    Active
+                                </label>
+                            </div>
+                            <div class="help-text">If unchecked, this section and its questions won't appear in the form.</div>
+                        </div>
                     </div>
                     
-                    <div class="form-group text-center mt-4">
-                        <a href="{% url 'manage_form_structure' %}" class="btn btn-secondary">Cancel</a>
+                    <!-- Preview Section -->
+                    <div class="section-preview" id="sectionPreview">
+                        <div class="preview-title">
+                            <i class="fas fa-eye me-1"></i> Section Preview
+                        </div>
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0" id="previewTitle">Section Title</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted" id="previewDescription">Section description will appear here...</p>
+                                <p class="text-center text-muted"><em>Questions will be added after creating this section</em></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <a href="{% url 'manage_form_structure' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i> Cancel
+                        </a>
+                        
                         <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-{% if is_edit %}save{% else %}plus-circle{% endif %} me-1"></i> 
                             {% if is_edit %}Update{% else %}Create{% endif %} Section
                         </button>
                     </div>
@@ -85,14 +249,39 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block extra_scripts %}
 <script>
-    $(document).ready(function() {
+    document.addEventListener('DOMContentLoaded', function() {
         // Add Bootstrap classes to form fields
         $('#{{ form.title.id_for_label }}').addClass('form-control');
         $('#{{ form.description.id_for_label }}').addClass('form-control');
         $('#{{ form.order.id_for_label }}').addClass('form-control');
-        $('#{{ form.is_active.id_for_label }}').addClass('custom-control-input');
+        $('#{{ form.is_active.id_for_label }}').addClass('form-check-input');
+        
+        // Set up live preview
+        const titleInput = document.getElementById('{{ form.title.id_for_label }}');
+        const descriptionInput = document.getElementById('{{ form.description.id_for_label }}');
+        const previewTitle = document.getElementById('previewTitle');
+        const previewDescription = document.getElementById('previewDescription');
+        
+        // Initialize with current values
+        updatePreview();
+        
+        // Update preview on input changes
+        titleInput.addEventListener('input', updatePreview);
+        descriptionInput.addEventListener('input', updatePreview);
+        
+        function updatePreview() {
+            previewTitle.textContent = titleInput.value || 'Section Title';
+            
+            if (descriptionInput.value) {
+                previewDescription.textContent = descriptionInput.value;
+                previewDescription.style.display = 'block';
+            } else {
+                previewDescription.textContent = 'No description provided';
+                previewDescription.style.fontStyle = 'italic';
+            }
+        }
     });
 </script>
 {% endblock %}
